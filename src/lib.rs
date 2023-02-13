@@ -1,3 +1,7 @@
+pub mod register;
+pub mod operation;
+mod math;
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }

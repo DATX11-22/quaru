@@ -1,10 +1,7 @@
 use inquire::{error::InquireError, Select};
 use std::{fmt::Display, vec};
 
-use quant::{
-    operation,
-    register::Register,
-};
+use quant::{operation, register::Register};
 
 enum Choice {
     Show,
@@ -203,8 +200,10 @@ fn handle_apply(reg: &mut Register<4>) {
 
 fn main() {
     let mut reg = Register::new([false; 4]);
+    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
+        println!("{}", QUARU);
         let initial = match initial_prompt() {
             Ok(choice) => choice,
             Err(e) => panic!("Problem selecting an option: {:?}", e),
@@ -217,3 +216,13 @@ fn main() {
         };
     }
 }
+
+const QUARU: &str = "
+  ______      __    __       ___      .______       __    __  
+ /  __  \\    |  |  |  |     /   \\     |   _  \\     |  |  |  | 
+|  |  |  |   |  |  |  |    /  ^  \\    |  |_)  |    |  |  |  | 
+|  |  |  |   |  |  |  |   /  /_\\  \\   |      /     |  |  |  | 
+|  `--'  '--.|  `--'  |  /  _____  \\  |  |\\  \\----.|  `--'  | 
+ \\_____\\_____\\\\______/  /__/     \\__\\ | _| `._____| \\______/  
+                                                              
+";

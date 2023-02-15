@@ -12,4 +12,4 @@ rand = "0.8.5"
 
 [dev-dependencies]
 proptest = "1.1.0"
-const-random = "0.1.15"
+mockall = "0.11.3"

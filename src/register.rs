@@ -29,7 +29,7 @@ impl<const N: usize> Register<N> {
         }
     }
 
-    pub fn apply<'a, const ARITY: usize>(&mut self, op: Operation<ARITY>) -> &mut Self {
+    pub fn apply<const ARITY: usize>(&mut self, op: Operation<ARITY>) -> &mut Self {
         let target = op.targets()[0];
         let num_matrices = N + 1 - op.targets().len();
 

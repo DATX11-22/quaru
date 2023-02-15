@@ -1,7 +1,9 @@
 use proptest::prelude::*;
 use quant::register::Register;
+use quant::operation;
 
 #[test]
+#[ignore = "Wait for feature confirmation"]
 fn measure_on_zero_state_gives_false() {
     let mut register = Register::new([false]);
     let input = register.measure(0);
@@ -29,8 +31,7 @@ proptest!(
         let expected = [state, state2, state3, state4];
         assert_eq!(input, expected);
     }
-);
-proptest!(
+
     #[test]
     fn measure_eight_qubits_gives_same_result(
         state in any::<bool>(),
@@ -56,9 +57,8 @@ proptest!(
         let expected = [state, state2, state3, state4, state5, state6, state7, state8];
         assert_eq!(input, expected);
     }
-);
-//proptest that generates a abitratily long list of bools and checks if all are true
-proptest!(
+
+    //proptest that generates a abitratily long list of bools and checks if all are true
     #[test]
     fn measure_arbitrary_qubits_gives_same_result(
         states in proptest::collection::vec(any::<bool>(), 1..20)
@@ -70,5 +70,16 @@ proptest!(
         // }
         let not_states = states.iter().map(|b| !b).collect::<Vec<bool>>();
         assert_eq!(not_states, states);
+    }
+
+    #[test]
+    fn hadamard_hadamard_retains_original_state(i in 0..3) {
+        let mut reg = Register::new([false,false,false]);
+        let expected = reg.clone();
+
+        let hadamard = operation::hadamard(i as usize);
+        let input = reg.apply(&hadamard).apply(&hadamard);
+        
+        assert_eq!(*input, expected);
     }
 );

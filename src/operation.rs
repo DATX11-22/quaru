@@ -2,6 +2,7 @@ use ndarray::{array, Array2};
 use num::Complex;
 use std::f64::consts;
 
+#[derive(Clone, Debug)]
 pub struct Operation<const ARITY: usize> {
     matrix: Array2<Complex<f64>>,
     targets: [usize; ARITY],

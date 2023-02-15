@@ -82,12 +82,38 @@ mod tests {
     use ndarray::Array2;
     use num::Complex;
 
-    use super::{hadamard, identity};
+    use super::{cnot, hadamard, identity, not, phase, swap};
+
+    fn all_ops() -> Vec<(Array2<Complex<f64>>, usize)> {
+        return vec![
+            (identity(0).matrix(), identity(0).targets.len()),
+            (hadamard(0).matrix(), hadamard(0).targets.len()),
+            (cnot(0, 1).matrix(), cnot(0, 1).targets.len()),
+            (swap(0, 1).matrix(), swap(0, 1).targets.len()),
+            (phase(0).matrix(), phase(0).targets.len()),
+            (not(0).matrix(), not(0).targets.len()),
+        ];
+    }
 
     #[test]
-    fn hadamard_identity() {
-        let id = hadamard(0).matrix().dot(&hadamard(0).matrix());
-        assert!(matrix_is_equal(id, identity(0).matrix(), 1e-8))
+    fn sz_matches() {
+        for (matrix, arity) in all_ops() {
+            assert_eq!(matrix.dim().0, matrix.dim().1);
+            assert_eq!(matrix.dim().0, 1 << arity)
+        }
+    }
+
+    #[test]
+    fn unitary() {
+        // This also guarantees preservation of total probability
+        for (mat, _) in all_ops() {
+            let conj_transpose = mat.t().map(|e| e.conj());
+            assert!(matrix_is_equal(
+                mat.dot(&conj_transpose),
+                Array2::eye(mat.dim().0),
+                1e-8
+            ))
+        }
     }
 
     fn matrix_is_equal(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>, tolerance: f64) -> bool {

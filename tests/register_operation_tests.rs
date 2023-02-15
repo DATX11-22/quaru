@@ -1,6 +1,6 @@
 use proptest::prelude::*;
-use quant::register::Register;
 use quant::operation;
+use quant::register::Register;
 
 #[test]
 #[ignore = "Wait for feature confirmation"]
@@ -79,7 +79,27 @@ proptest!(
 
         let hadamard = operation::hadamard(i as usize);
         let input = reg.apply(&hadamard).apply(&hadamard);
-        
+
         assert_eq!(*input, expected);
     }
+
+    #[test]
+    #[ignore = "Indexing issue in register, is weird"]
+    fn first_bell_state_measure_equal(i in 0..5 as usize) {
+        let mut reg = Register::new([false; 6]);
+        let hadamard = operation::hadamard(i); 
+        let cnot = operation::cnot(i, i+1);
+        
+        // maximally entangle qubit i and i + 1
+        reg.apply(&hadamard);
+        reg.apply(&cnot);
+        println!("{i}");
+        println!("{}", i+1);
+        reg.print_probabilities();
+
+        // this should measure index i and i+1
+        assert_eq!(reg.measure(5-i), reg.measure(4-i));
+    }
 );
+
+

@@ -1,10 +1,13 @@
+use crate::{
+    math,
+    operation::{self, Operation},
+};
+use ndarray::{array, linalg, Array2};
 use num::Complex;
-use ndarray::{array, Array2, linalg};
-use crate::{math, operation::{Operation, self}};
 use rand::prelude::*;
 
 /// A quantum register containing N qubits.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Register<const N: usize> {
 
     /// Represents the state of the quantum register as a vector with 2^N complex elements.
@@ -97,7 +100,6 @@ impl<const N: usize> Register<N> {
         let total_prob = if res { prob_1 } else { prob_0 };
 
         for (i, s) in self.state.iter_mut().enumerate() {
-
             if ((i >> target) & 1) != res as usize {
                 // In state i the target bit != the result of measuring that bit.
                 // The probability of reaching this state is therefore 0.
@@ -113,7 +115,6 @@ impl<const N: usize> Register<N> {
                 // => x_i/sqrt(total_prob) = y_i
                 *s /= total_prob.sqrt();
             }
-
         }
 
         res
@@ -122,8 +123,12 @@ impl<const N: usize> Register<N> {
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
         for (i, s) in self.state.iter().enumerate() {
-            // Prints row of state in binary, and probability in percentage
-            println!("{:0N$b}: {:6.2}%", i, s.norm_sqr() * 100.0);         }
+            println!("{:0N$b}: {}%", i, s.norm_sqr() * 100.0);
+        }
     }
 
+impl<const N: usize> PartialEq for Register<N> {
+    fn eq(&self, other: &Self) -> bool {
+        (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)
+    }
 }

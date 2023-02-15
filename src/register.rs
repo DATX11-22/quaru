@@ -4,6 +4,7 @@ use crate::{math, operation::{Operation, self}};
 use rand::prelude::*;
 
 /// A quantum register containing N qubits.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Register<const N: usize> {
 
     /// Represents the state of the quantum register as a vector with 2^N complex elements.

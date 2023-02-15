@@ -5,7 +5,6 @@ use rand::prelude::*;
 
 pub struct Register<const N: usize> {
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
-    size: usize,
 }
 
 impl<const N: usize> Register<N> {
@@ -19,13 +18,12 @@ impl<const N: usize> Register<N> {
 
         Self {
             state: state_matrix,
-            size: input_bits.len(),
         }
     }
 
     pub fn apply<'a, const ARITY: usize>(&mut self, op: Operation<ARITY>) -> &mut Self {
         let target = op.targets()[0];
-        let num_matrices = self.size + 1 - op.targets().len();
+        let num_matrices = N + 1 - op.targets().len();
 
         let get_matrix = |i| {
             if i == target { return op.matrix(); }

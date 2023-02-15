@@ -6,7 +6,7 @@
 The project is divided up into three main branch areas: `main`, `dev` and `feature`. 
 - `main` reflects the current version of the project.
 - `dev` reflects the current stable features in the project.
-- `feature` reflects a feature in progress. Named in the form: `<IssueNr>-<FeatureName>`, where spaces are replaced with "-". New feature branches are based on the `dev` branch.
+- `feature` reflects a feature in progress. Named in the form: `<IssueNr>-<FeatureName>`, where spaces are replaced with "-". New feature branches are based on the `dev` branch or other feature branches.
 
 Additionally, there is the `hotfix` branch used for quick fixes of the `main` branch. New hotfix branches are based on the `main` branch as a result. 
 
@@ -19,6 +19,12 @@ Additionally, there is the `hotfix` branch used for quick fixes of the `main` br
 Keeps track of what is being done and what needs to be done. Issues both reflect discovered flaws and features in progress. If the issue relates to a specific project, it is encouraged to add it to a related project board.
 
 When working on an issue you **must** assign yourself to it as to prevent miscommunication and conflicting work!
+
+### Merging and Rebasing
+Using both merging and rebasing is beneficial in order to maintain a clean commit history throughout the project. It is important to know when to use what.
+
+- `merge` is used when the target branch is public and meant to be shared. This is for example when new features are brought into the `main` branch. It is then encouraged to squash (--squash flag) the commit in order to keep the commit history of such branches clean.
+- `rebase` is used for private branches. This is for example when a `feature` is based on another and can be reincorporated back into the original, as two commit histories may prove unnecessary. This gives the benefit of only having one `merge` in the end instead of two. **NOTE:** never rebase a public branch onto a private target as it leads to diverging commit histories!
 
 ## Naming conventions
 [RFC 430](https://github.com/rust-lang/rfcs/blob/master/text/0430-finalizing-naming-conventions.md) desribes the Rust naming conventions used. 

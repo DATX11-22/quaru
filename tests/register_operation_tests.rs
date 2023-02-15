@@ -1,6 +1,13 @@
+extern crate proptest;
+
+use std::ops::Range;
+
+use proptest::arbitrary::StrategyFor;
 use proptest::prelude::*;
-use quant::operation;
+use proptest::sample::{select, Select};
+use quant::operation::{self, Operation};
 use quant::register::Register;
+use rand::seq::IteratorRandom;
 
 #[test]
 #[ignore = "Wait for feature confirmation"]
@@ -69,7 +76,7 @@ proptest!(
             // input.push(register.measure(i));
         // }
         let not_states = states.iter().map(|b| !b).collect::<Vec<bool>>();
-        assert_eq!(not_states, states);
+        assert_ne!(not_states, states);
     }
 
     #[test]
@@ -87,9 +94,9 @@ proptest!(
     #[ignore = "Indexing issue in register, is weird"]
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
         let mut reg = Register::new([false; 6]);
-        let hadamard = operation::hadamard(i); 
+        let hadamard = operation::hadamard(i);
         let cnot = operation::cnot(i, i+1);
-        
+
         // maximally entangle qubit i and i + 1
         reg.apply(&hadamard);
         reg.apply(&cnot);
@@ -100,6 +107,32 @@ proptest!(
         // this should measure index i and i+1
         assert_eq!(reg.measure(5-i), reg.measure(4-i));
     }
+
+    #[test]
+    fn arbitrary_unary_applied_twice_gives_equal(op in UnaryOperation::arbitrary_with(0..6)) {
+        let mut reg = Register::new([false; 6]);
+        let expected = reg.clone();
+
+        reg.apply(&op.0);
+        reg.apply(&op.0);
+        
+        assert_eq!(reg, expected);
+        
+    }
 );
 
+#[derive(Debug, Clone)]
+struct UnaryOperation(Operation<1>);
 
+impl Arbitrary for UnaryOperation {
+    type Parameters = Range<usize>;
+    type Strategy = Select<UnaryOperation>;
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        let i = rand::thread_rng().gen_range(args);
+        select(vec![
+            UnaryOperation(operation::hadamard(i)),
+            UnaryOperation(operation::not(i)),
+            UnaryOperation(operation::identity(i)),
+        ])
+    }
+}

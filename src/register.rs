@@ -3,6 +3,7 @@ use ndarray::{array, Array2, linalg};
 use crate::{math, operation::{Operation, self}};
 use rand::prelude::*;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Register<const N: usize> {
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
 }
@@ -21,7 +22,7 @@ impl<const N: usize> Register<N> {
         }
     }
 
-    pub fn apply<'a, const ARITY: usize>(&mut self, op: Operation<ARITY>) -> &mut Self {
+    pub fn apply<'a, const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> &mut Self {
         let target = op.targets()[0];
         let num_matrices = N + 1 - op.targets().len();
 

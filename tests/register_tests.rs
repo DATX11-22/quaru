@@ -19,14 +19,14 @@ proptest!(
         state4 in any::<bool>()
     ) {
         let mut register = Register::new([state, state2, state3, state4]);
+        //                                  q0     q1       q2     q3
         let input = [
-            register.measure(3),
-            register.measure(2),
-            register.measure(1),
             register.measure(0),
+            register.measure(1),
+            register.measure(2),
+            register.measure(3),
         ];
         let expected = [state, state2, state3, state4];
-        // let expected = [state4, state3, state2, state];
         assert_eq!(input, expected);
     }
 );
@@ -44,17 +44,31 @@ proptest!(
     ) {
         let mut register = Register::new([state, state2, state3, state4, state5, state6, state7, state8]);
         let input = [
-            register.measure(7),
-            register.measure(6),
-            register.measure(5),
-            register.measure(4),
-            register.measure(3),
-            register.measure(2),
-            register.measure(1),
             register.measure(0),
+            register.measure(1),
+            register.measure(2),
+            register.measure(3),
+            register.measure(4),
+            register.measure(5),
+            register.measure(6),
+            register.measure(7),
         ];
         let expected = [state, state2, state3, state4, state5, state6, state7, state8];
-        // let expected = [state8, state7, state6, state5, state4, state3, state2, state];
         assert_eq!(input, expected);
+    }
+);
+//proptest that generates a abitratily long list of bools and checks if all are true
+proptest!(
+    #[test]
+    fn measure_arbitrary_qubits_gives_same_result(
+        states in proptest::collection::vec(any::<bool>(), 1..20)
+    ) {
+        // let mut register = Register::new(states.clone());
+        // let mut input = Vec::new();
+        // for i in 0..states.len() {
+            // input.push(register.measure(i));
+        // }
+        let not_states = states.iter().map(|b| !b).collect::<Vec<bool>>();
+        assert_eq!(not_states, states);
     }
 );

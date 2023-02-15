@@ -17,7 +17,6 @@ pub struct Register<const N: usize> {
     /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
-    size: usize,
 }
 
 impl<const N: usize> Register<N> {
@@ -35,7 +34,6 @@ impl<const N: usize> Register<N> {
 
         Self {
             state: state_matrix,
-            size: input_bits.len(),
         }
     }
     /// Applys a quantum operation to the current state 

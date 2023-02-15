@@ -95,7 +95,7 @@ impl<const N: usize> Register<N> {
 
     pub fn print_probabilities(&self) {
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0N$b}: {}%", i, s.norm_sqr() * 100.0);
+            println!("{:0N$b}: {:6.2}%", i, s.norm_sqr() * 100.0);
         }
     }
 

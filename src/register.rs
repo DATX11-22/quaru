@@ -4,6 +4,14 @@ use crate::{math, operation::{Operation, self}};
 use rand::prelude::*;
 
 pub struct Register<const N: usize> {
+
+    // Represents the state of the quantum register as a vector with 2^N complex elements.
+    // The state is a linear combination of the basis vectors:
+    // |0..00>, |0..01>, |0..10>, ..., |1..11> (written in Dirac notation). Which corresponds to the vectors:
+    // [1, 0, 0, ...]^T, [0, 1, 0, ...]^T, [0, 0, 1, ...]^T, ..., [0, 0, ...., 0, 1]^T
+    // In other words: state = a*|0..00> + b*|0..01> + c * |0..10> ...
+    // The state vector is [a, b, c, ...]^T, where |state_i|^2 represents the probability
+    // that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
 }
 
@@ -42,12 +50,14 @@ impl<const N: usize> Register<N> {
     }
 
     pub fn measure(&mut self, target: usize) -> bool {
-        let mut prob_1 = 0.0;
-        let mut prob_0 = 0.0;
+        let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
+        let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
 
         for (i, s) in self.state.iter().enumerate() {
+            // The probability of collapsing into state i
             let prob = s.norm_sqr();
             
+            // If the target bit is set in state i, add its probability to prob_1 or prob_0 accordingly
             if ((i >> target) & 1) == 1 { prob_1 += prob; }
             else { prob_0 += prob; }
         }
@@ -55,16 +65,26 @@ impl<const N: usize> Register<N> {
         let mut rng = rand::thread_rng();
         let x: f64 = rng.gen();
 
+        // The result of measuring the bit
         let res = x > prob_0;
 
         let total_prob = if res { prob_1 } else { prob_0 };
+
         for (i, s) in self.state.iter_mut().enumerate() {
 
             if ((i >> target) & 1) != res as usize {
+                // In state i the target bit != the result of measuring that bit.
+                // The probability of reaching this state is therefore 0.
                 *s = Complex::new(0.0, 0.0);
             }
             else {
-                // TODO: Prove this v
+                // Because we have set some probabilities to 0 the state vector no longer
+                // upholds the criteria that the probabilities sum to 1. So we have to normalize it.
+                // Before normalization (state = X): sum(|x_i|^2) = total_prob
+                // After normalization  (state = Y):  sum(|y_i|^2) = 1 = total_prob / total_prob
+                // => sum((|x_i|^2) / total_prob) = sum(|y_i|^2)
+                // => sum(|x_i/sqrt(total_prob)|^2) = sum(|y_i|^2)
+                // => x_i/sqrt(total_prob) = y_i
                 *s /= total_prob.sqrt();
             }
 

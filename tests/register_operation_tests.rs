@@ -116,6 +116,17 @@ proptest!(
 
         assert_eq!(reg, expected);
     }
+    #[test]
+    #[ignore = "Apply does not figure out how to swap bits"]
+    fn arbitrary_binary_applied_twice_gives_equal_after_swap_is_implemented(op in BinaryOperationAfterSwapIsImplemented::arbitrary_with(0..6)) {
+        let mut reg = Register::new([false; 6]);
+        let expected = reg.clone();
+
+        reg.apply(&op.0);
+        reg.apply(&op.0);
+
+        assert_eq!(reg, expected);
+    }
 
 );
 
@@ -148,6 +159,20 @@ impl Arbitrary for BinaryOperation {
         select(vec![
             BinaryOperation(operation::cnot(i, j)),
             BinaryOperation(operation::swap(i, j)),
+        ])
+    }
+}
+#[derive(Debug, Clone)]
+struct BinaryOperationAfterSwapIsImplemented(Operation<2>);
+impl Arbitrary for BinaryOperationAfterSwapIsImplemented {
+    type Parameters = Range<usize>;
+    type Strategy = Select<BinaryOperationAfterSwapIsImplemented>;
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        let i = rand::thread_rng().gen_range(args.clone());
+        let j = rand::thread_rng().gen_range(args);
+        select(vec![
+            BinaryOperationAfterSwapIsImplemented(operation::cnot(i, j)),
+            BinaryOperationAfterSwapIsImplemented(operation::swap(i, j)),
         ])
     }
 }

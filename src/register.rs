@@ -3,15 +3,16 @@ use ndarray::{array, Array2, linalg};
 use crate::{math, operation::{Operation, self}};
 use rand::prelude::*;
 
+/// A quantum register containing N qubits.
 pub struct Register<const N: usize> {
 
-    // Represents the state of the quantum register as a vector with 2^N complex elements.
-    // The state is a linear combination of the basis vectors:
-    // |0..00>, |0..01>, |0..10>, ..., |1..11> (written in Dirac notation). Which corresponds to the vectors:
-    // [1, 0, 0, ...]^T, [0, 1, 0, ...]^T, [0, 0, 1, ...]^T, ..., [0, 0, ...., 0, 1]^T
-    // In other words: state = a*|0..00> + b*|0..01> + c * |0..10> ...
-    // The state vector is [a, b, c, ...]^T, where |state_i|^2 represents the probability
-    // that the system will collapse into the state described by the ith basis vector.
+    /// Represents the state of the quantum register as a vector with 2^N complex elements.
+    /// The state is a linear combination of the basis vectors:
+    /// |0..00>, |0..01>, |0..10>, ..., |1..11> (written in Dirac notation). Which corresponds to the vectors:
+    /// [1, 0, 0, ...]^T, [0, 1, 0, ...]^T, [0, 0, 1, ...]^T, ..., [0, 0, ...., 0, 1]^T
+    /// In other words: state = a*|0..00> + b*|0..01> + c * |0..10> ...
+    /// The state vector is [a, b, c, ...]^T, where |state_i|^2 represents the probability
+    /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
 }
 
@@ -49,7 +50,17 @@ impl<const N: usize> Register<N> {
         return self;
     }
 
+    /// Measure a quantum bit in the register and returns its measured value.
+    ///
+    /// Performing this measurement collapses the target qbit to either a one or a zero, and therefore
+    /// modifies the state.
+    ///
+    /// The target bit specifies the bit which should be measured and should be in the range [0, N - 1].
+    ///
+    /// **Panics** if the supplied target is not less than the number of qubits in the register.
     pub fn measure(&mut self, target: usize) -> bool {
+        assert!(target < N);
+
         let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
         let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
 

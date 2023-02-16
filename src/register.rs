@@ -22,7 +22,7 @@ impl<const N: usize> Register<N> {
 
         let state_matrix = input_bits.iter()
             .map(math::to_qbit_vector)
-            .fold(base_state, |a, b| linalg::kron(&a, &b));
+            .fold(base_state, |a, b| linalg::kron(&b, &a));
 
         Self {
             state: state_matrix,

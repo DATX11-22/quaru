@@ -7,11 +7,14 @@ use rand::prelude::*;
 pub struct Register<const N: usize> {
 
     /// Represents the state of the quantum register as a vector with 2^N complex elements.
+    ///
     /// The state is a linear combination of the basis vectors:
-    /// |0..00>, |0..01>, |0..10>, ..., |1..11> (written in Dirac notation). Which corresponds to the vectors:
-    /// [1, 0, 0, ...]^T, [0, 1, 0, ...]^T, [0, 0, 1, ...]^T, ..., [0, 0, ...., 0, 1]^T
-    /// In other words: state = a*|0..00> + b*|0..01> + c * |0..10> ...
-    /// The state vector is [a, b, c, ...]^T, where |state_i|^2 represents the probability
+    /// |0..00>, |0..01>, |0..10>, ..., |1..11> (written in Dirac notation) which corresponds to the vectors:
+    /// [1, 0, 0, ...]<sup>T</sup>, [0, 1, 0, ...]<sup>T</sup>, [0, 0, 1, ...]<sup>T</sup>, ..., [0, 0, ...., 0, 1]<sup>T</sup>
+    ///
+    /// In other words: state = a*|0..00> + b*|0..01> + c * |0..10> + ...
+    ///
+    /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
 }

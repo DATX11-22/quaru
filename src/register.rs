@@ -21,9 +21,13 @@ pub struct Register<const N: usize> {
 
 impl<const N: usize> Register<N> {
 
+    /// Creates a new state with an array of booleans with size N 
     pub fn new(input_bits: [bool; N]) -> Self {
-        let base_state = array![[Complex::new(1.0, 0.0)]];
-
+        /// Complex 1 by 1 identity matrix
+        let base_state = array![[Complex::new(1.0, 0.0)]]; 
+        
+        /// Creates state by translating bool to qubit
+        /// then uses qubits in tesnor product to create state
         let state_matrix = input_bits.iter()
             .map(math::to_qbit_vector)
             .fold(base_state, |a, b| linalg::kron(&b, &a));
@@ -32,24 +36,29 @@ impl<const N: usize> Register<N> {
             state: state_matrix,
         }
     }
-
+    /// Applys a quantum operation to the current state 
+    ///
+    /// Input a state and an operation. Outputs the new state
     pub fn apply<const ARITY: usize>(&mut self, op: Operation<ARITY>) -> &mut Self {
-        let target = op.targets()[0];
-        let num_matrices = N + 1 - op.targets().len();
+        /// Gets the target bit
+        let target = op.targets()[0]; 
+        /// Calculates the number of matrices in tensor product
+        let num_matrices = N + 1 - op.targets().len(); 
 
-        let get_matrix = |i| {
-            if i == target { return op.matrix(); }
+        /// If index i is equal to target bit returns matrix representation of operation 
+        /// otherwise returns 2 by 2 identity matrix
+        let get_matrix = |i| { if i == target { return op.matrix(); }
             else { return operation::identity(0).matrix(); }
         };
 
+        /// Complex 1 by 1 identity matrix
         let base_state = array![[Complex::new(1.0, 0.0)]];
-
-        let stage_matrix = (0..num_matrices)
+        /// Performs tensor product with the operation matrix and identity matrices
+        let stage_matrix = (0..num_matrices) 
             .map(get_matrix)
             .fold(base_state, |a, b| linalg::kron(&a, &b));
-
-        self.state = stage_matrix.dot(&self.state);
-
+        /// Calculates new state by performing dot product between current state and stage_matrix
+        self.state = stage_matrix.dot(&self.state); 
         return self;
     }
 
@@ -107,10 +116,11 @@ impl<const N: usize> Register<N> {
         res
     }
 
+    /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0N$b}: {:6.2}%", i, s.norm_sqr() * 100.0);
-        }
+            /// Prints row of state in binary, and probability in percentage
+            println!("{:0N$b}: {:6.2}%", i, s.norm_sqr() * 100.0);         }
     }
 
 }

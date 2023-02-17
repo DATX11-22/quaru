@@ -8,7 +8,7 @@ use quant::operation::{self, Operation};
 use quant::register::Register;
 
 #[test]
-#[ignore = "Wait for feature confirmation"]
+// #[ignore = "Wait for feature confirmation"]
 fn measure_on_zero_state_gives_false() {
     let mut register = Register::new([false]);
     let input = register.measure(0);
@@ -19,7 +19,7 @@ fn measure_on_zero_state_gives_false() {
 
 proptest!(
     #[test]
-    #[ignore = "Indexing issue in register, is weird"]
+    // #[ignore = "Indexing issue in register, is weird"]
     fn measure_four_qubits_gives_same_result(
         state in any::<bool>(),
         state2 in any::<bool>(),
@@ -39,7 +39,7 @@ proptest!(
     }
 
     #[test]
-    #[ignore = "Indexing issue in register, is weird"]
+    // #[ignore = "Indexing issue in register, is weird"]
     fn measure_eight_qubits_gives_same_result(
         state in any::<bool>(),
         state2 in any::<bool>(),
@@ -77,7 +77,7 @@ proptest!(
     }
 
     #[test]
-    #[ignore = "Indexing issue in register, is weird"]
+    // #[ignore = "Indexing issue in register, is weird"]
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
         let mut reg = Register::new([false; 6]);
         let hadamard = operation::hadamard(i);
@@ -91,7 +91,7 @@ proptest!(
         reg.print_probabilities();
 
         // this should measure index i and i+1
-        assert_eq!(reg.measure(5-i), reg.measure(4-i));
+        assert_eq!(reg.measure(i), reg.measure(i+1));
     }
 
     #[test]
@@ -120,9 +120,7 @@ proptest!(
     #[ignore = "Apply does not figure out how to swap bits"]
     fn arbitrary_binary_applied_twice_gives_equal_after_swap_is_implemented(op in BinaryOperationAfterSwapIsImplemented::arbitrary_with(0..6)) {
         let mut reg = Register::new([false; 6]);
-        let expected = reg.clone();
-
-        reg.apply(&op.0);
+        let expected = reg.clone(); reg.apply(&op.0);
         reg.apply(&op.0);
 
         assert_eq!(reg, expected);

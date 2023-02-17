@@ -98,7 +98,6 @@ impl<const N: usize> Register<N> {
         let res = x > prob_0;
 
         let total_prob = if res { prob_1 } else { prob_0 };
-
         for (i, s) in self.state.iter_mut().enumerate() {
             if ((i >> target) & 1) != res as usize {
                 // In state i the target bit != the result of measuring that bit.

@@ -1,6 +1,13 @@
 use ndarray::{array, Array2};
 use num::Complex;
-use std::f64::consts;
+use std::{f64::consts, vec};
+
+// Naming?
+pub trait OperationTrait {
+    fn matrix(&self) -> Array2<Complex<f64>>;
+    fn targets(&self) -> Vec<usize>;
+    fn arity(&self) -> usize;
+}
 
 pub struct Operation<const ARITY: usize> {
     matrix: Array2<Complex<f64>>,
@@ -8,13 +15,17 @@ pub struct Operation<const ARITY: usize> {
 }
 
 // TODO: Check if we can return references instead?
-impl<const ARITY: usize> Operation<ARITY> {
-    pub fn matrix(&self) -> Array2<Complex<f64>> {
+impl<const ARITY: usize> OperationTrait for Operation<ARITY> {
+    fn matrix(&self) -> Array2<Complex<f64>> {
         self.matrix.clone()
     }
 
-    pub fn targets(&self) -> [usize; ARITY] {
-        self.targets.clone()
+    fn targets(&self) -> Vec<usize> {
+        self.targets.to_vec()
+    }
+
+    fn arity(&self) -> usize {
+        ARITY
     }
 }
 
@@ -79,38 +90,39 @@ fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {
 
 #[cfg(test)]
 mod tests {
+    use super::OperationTrait;
     use ndarray::Array2;
     use num::Complex;
 
     use super::{cnot, hadamard, identity, not, phase, swap};
 
-    fn all_ops() -> Vec<(Array2<Complex<f64>>, usize)> {
+    fn all_ops() -> Vec<Box<dyn OperationTrait>> {
         return vec![
-            (identity(0).matrix(), identity(0).targets.len()),
-            (hadamard(0).matrix(), hadamard(0).targets.len()),
-            (cnot(0, 1).matrix(), cnot(0, 1).targets.len()),
-            (swap(0, 1).matrix(), swap(0, 1).targets.len()),
-            (phase(0).matrix(), phase(0).targets.len()),
-            (not(0).matrix(), not(0).targets.len()),
+            Box::new(identity(0)),
+            Box::new(hadamard(0)),
+            Box::new(cnot(0, 1)),
+            Box::new(swap(0, 1)),
+            Box::new(phase(0)),
+            Box::new(not(0)),
         ];
     }
 
     #[test]
     fn sz_matches() {
-        for (matrix, arity) in all_ops() {
-            assert_eq!(matrix.dim().0, matrix.dim().1);
-            assert_eq!(matrix.dim().0, 1 << arity)
+        for op in all_ops() {
+            assert_eq!(op.matrix().dim().0, op.matrix().dim().1);
+            assert_eq!(op.matrix().dim().0, 1 << op.arity())
         }
     }
 
     #[test]
     fn unitary() {
         // This also guarantees preservation of total probability
-        for (mat, _) in all_ops() {
-            let conj_transpose = mat.t().map(|e| e.conj());
+        for op in all_ops() {
+            let conj_transpose = op.matrix().t().map(|e| e.conj());
             assert!(matrix_is_equal(
-                mat.dot(&conj_transpose),
-                Array2::eye(mat.dim().0),
+                op.matrix().dot(&conj_transpose),
+                Array2::eye(op.matrix().dim().0),
                 1e-8
             ))
         }

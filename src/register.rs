@@ -1,6 +1,6 @@
 use num::Complex;
 use ndarray::{array, Array2, linalg};
-use crate::{math, operation::{Operation, self}};
+use crate::{math, operation::{OperationTrait, Operation, self}};
 use rand::prelude::*;
 
 pub struct Register<const N: usize> {

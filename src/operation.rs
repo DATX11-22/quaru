@@ -84,6 +84,23 @@ pub fn not(target: usize) -> Operation<1> {
     }
 }
 
+pub fn pauli_y(target: usize) -> Operation<1> {
+    Operation {
+        matrix: array![
+            [Complex::new(0.0, 0.0), Complex::new(0.0, -1.0)],
+            [Complex::new(0.0, 1.0), Complex::new(0.0, 0.0)]
+        ],
+        targets: [target],
+    }
+}
+
+pub fn pauli_z(target: usize) -> Operation<1> {
+    Operation {
+        matrix: real_to_complex(array![[1.0, 0.0], [0.0, -1.0]]),
+        targets: [target],
+    }
+}
+
 fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {
     matrix.map(|e| e.into())
 }
@@ -94,7 +111,7 @@ mod tests {
     use ndarray::Array2;
     use num::Complex;
 
-    use super::{cnot, hadamard, identity, not, phase, swap};
+    use super::{cnot, hadamard, identity, not, pauli_y, pauli_z, phase, swap};
 
     fn all_ops() -> Vec<Box<dyn OperationTrait>> {
         return vec![
@@ -104,6 +121,8 @@ mod tests {
             Box::new(swap(0, 1)),
             Box::new(phase(0)),
             Box::new(not(0)),
+            Box::new(pauli_y(0)),
+            Box::new(pauli_z(0)),
         ];
     }
 

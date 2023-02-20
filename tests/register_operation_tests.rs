@@ -19,6 +19,14 @@ fn measure_on_zero_state_gives_false() {
 
 proptest!(
     #[test]
+    fn test_not_on_arbitrary_qubit(i in 0..3) {
+        let mut register = Register::new([false, false, false]);
+        register.apply(&operation::not(i as usize));
+        let input = register.measure(i as usize);
+        let expected = true;
+        assert_eq!(input, expected);
+    }
+    #[test]
     // #[ignore = "Indexing issue in register, is weird"]
     fn measure_four_qubits_gives_same_result(
         state in any::<bool>(),
@@ -127,6 +135,8 @@ proptest!(
 
         assert_eq!(reg, expected);
     }
+
+    //superdense coding, quantum teleportation, deuch oracle
 
 );
 

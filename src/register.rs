@@ -1,6 +1,6 @@
 use crate::{
     math,
-    operation::{self, Operation},
+    operation::{self, Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
 use num::Complex;
@@ -20,25 +20,24 @@ pub struct Register<const N: usize> {
     /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
-    size: usize,
 }
 
+
 impl<const N: usize> Register<N> {
-    /// Creates a new state with an array of booleans with size N
+
+    /// Creates a new state with an array of booleans with size N 
     pub fn new(input_bits: [bool; N]) -> Self {
         // Complex 1 by 1 identity matrix
-        let base_state = array![[Complex::new(1.0, 0.0)]];
-
+        let base_state = array![[Complex::new(1.0, 0.0)]]; 
+        
         // Creates state by translating bool to qubit
         // then uses qubits in tesnor product to create state
-        let state_matrix = input_bits
-            .iter()
+        let state_matrix = input_bits.iter()
             .map(math::to_qbit_vector)
             .fold(base_state, |a, b| linalg::kron(&b, &a));
 
         Self {
             state: state_matrix,
-            size: input_bits.len(),
         }
     }
     /// Applys a quantum operation to the current state
@@ -58,7 +57,6 @@ impl<const N: usize> Register<N> {
 
         // Complex 1 by 1 identity matrix
         let base_state = array![[Complex::new(1.0, 0.0)]];
-
         // Performs tensor product with the operation matrix and identity matrices
         let stage_matrix = (0..num_matrices)
             .map(get_matrix)
@@ -86,7 +84,6 @@ impl<const N: usize> Register<N> {
         for (i, s) in self.state.iter().enumerate() {
             // The probability of collapsing into state i
             let prob = s.norm_sqr();
-
             // If the target bit is set in state i, add its probability to prob_1 or prob_0 accordingly
             if ((i >> target) & 1) == 1 {
                 prob_1 += prob;

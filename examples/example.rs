@@ -20,6 +20,11 @@ fn main() {
     register.print_probabilities();
 
     println!("{}", register.measure(1));
+    let mut register = Register::new([true, false, false]);
+
+    register.print_probabilities();
+
+    println!("{}", register.measure(0));
 
     register.print_probabilities();
 }

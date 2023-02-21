@@ -1,11 +1,14 @@
+use crate::{
+    math,
+    operation::{self, Operation, OperationTrait},
+};
+use ndarray::{array, linalg, Array2};
 use num::Complex;
-use ndarray::{array, Array2, linalg};
-use crate::{math, operation::{OperationTrait, Operation, self}};
 use rand::prelude::*;
 
 /// A quantum register containing N qubits.
+#[derive(Clone, Debug)]
 pub struct Register<const N: usize> {
-
     /// Represents the state of the quantum register as a vector with 2^N complex elements.
     ///
     /// The state is a linear combination of the basis vectors:
@@ -18,6 +21,7 @@ pub struct Register<const N: usize> {
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
 }
+
 
 impl<const N: usize> Register<N> {
 
@@ -36,17 +40,16 @@ impl<const N: usize> Register<N> {
             state: state_matrix,
         }
     }
-
-    /// Applys a quantum operation to the current state 
+    /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state
-    pub fn apply<const ARITY: usize>(&mut self, op: Operation<ARITY>) -> &mut Self {
+    pub fn apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> &mut Self {
         // Gets the target bit
-        let target = op.targets()[0]; 
+        let target = op.targets()[0];
         // Calculates the number of matrices in tensor product
-        let num_matrices = N + 1 - op.targets().len(); 
+        let num_matrices = N + 1 - op.targets().len();
 
-        // If index i is equal to target bit returns matrix representation of operation 
+        // If index i is equal to target bit returns matrix representation of operation
         // otherwise returns 2 by 2 identity matrix
         let get_matrix = |i| { if i == target { return op.matrix(); }
             else { return operation::identity(0).matrix(); }
@@ -55,11 +58,12 @@ impl<const N: usize> Register<N> {
         // Complex 1 by 1 identity matrix
         let base_state = array![[Complex::new(1.0, 0.0)]];
         // Performs tensor product with the operation matrix and identity matrices
-        let stage_matrix = (0..num_matrices) 
+        let stage_matrix = (0..num_matrices)
             .map(get_matrix)
-            .fold(base_state, |a, b| linalg::kron(&a, &b));
+            .fold(base_state, |a, b| linalg::kron(&b, &a));
+
         // Calculates new state by performing dot product between current state and stage_matrix
-        self.state = stage_matrix.dot(&self.state); 
+        self.state = stage_matrix.dot(&self.state);
         return self;
     }
 
@@ -80,10 +84,12 @@ impl<const N: usize> Register<N> {
         for (i, s) in self.state.iter().enumerate() {
             // The probability of collapsing into state i
             let prob = s.norm_sqr();
-            
             // If the target bit is set in state i, add its probability to prob_1 or prob_0 accordingly
-            if ((i >> target) & 1) == 1 { prob_1 += prob; }
-            else { prob_0 += prob; }
+            if ((i >> target) & 1) == 1 {
+                prob_1 += prob;
+            } else {
+                prob_0 += prob;
+            }
         }
 
         let mut rng = rand::thread_rng();
@@ -93,15 +99,12 @@ impl<const N: usize> Register<N> {
         let res = x > prob_0;
 
         let total_prob = if res { prob_1 } else { prob_0 };
-
         for (i, s) in self.state.iter_mut().enumerate() {
-
             if ((i >> target) & 1) != res as usize {
                 // In state i the target bit != the result of measuring that bit.
                 // The probability of reaching this state is therefore 0.
                 *s = Complex::new(0.0, 0.0);
-            }
-            else {
+            } else {
                 // Because we have set some probabilities to 0 the state vector no longer
                 // upholds the criteria that the probabilities sum to 1. So we have to normalize it.
                 // Before normalization (state = X): sum(|x_i|^2) = total_prob
@@ -111,7 +114,6 @@ impl<const N: usize> Register<N> {
                 // => x_i/sqrt(total_prob) = y_i
                 *s /= total_prob.sqrt();
             }
-
         }
 
         res
@@ -120,8 +122,12 @@ impl<const N: usize> Register<N> {
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
         for (i, s) in self.state.iter().enumerate() {
-            // Prints row of state in binary, and probability in percentage
-            println!("{:0N$b}: {:6.2}%", i, s.norm_sqr() * 100.0);         }
+            println!("{:0N$b}: {}%", i, s.norm_sqr() * 100.0);
+        }
     }
-
+}
+impl<const N: usize> PartialEq for Register<N> {
+    fn eq(&self, other: &Self) -> bool {
+        (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)
+    }
 }

@@ -9,6 +9,7 @@ pub trait OperationTrait {
     fn arity(&self) -> usize;
 }
 
+#[derive(Clone, Debug)]
 pub struct Operation<const ARITY: usize> {
     matrix: Array2<Complex<f64>>,
     targets: [usize; ARITY],

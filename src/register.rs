@@ -53,10 +53,12 @@ impl<const N: usize> Register<N> {
 
         // Complex 1 by 1 identity matrix
         let base_state = array![[Complex::new(1.0, 0.0)]];
+
         // Performs tensor product with the operation matrix and identity matrices
         let stage_matrix = (0..num_matrices) 
             .map(get_matrix)
-            .fold(base_state, |a, b| linalg::kron(&a, &b));
+            .fold(base_state, |a, b| linalg::kron(&b, &a));
+
         // Calculates new state by performing dot product between current state and stage_matrix
         self.state = stage_matrix.dot(&self.state); 
         return self;

@@ -1,6 +1,6 @@
 use num::Complex;
 use ndarray::{array, Array2, linalg};
-use crate::{math, operation::{Operation, self}};
+use crate::{math, operation::{OperationTrait, Operation, self}};
 use rand::prelude::*;
 
 /// A quantum register containing N qubits.
@@ -36,6 +36,7 @@ impl<const N: usize> Register<N> {
             state: state_matrix,
         }
     }
+
     /// Applys a quantum operation to the current state 
     ///
     /// Input a state and an operation. Outputs the new state

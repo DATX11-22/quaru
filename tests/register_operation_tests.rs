@@ -19,6 +19,14 @@ fn measure_on_zero_state_gives_false() {
 
 proptest!(
     #[test]
+    fn test_not_on_arbitrary_qubit(i in 0..3) {
+        let mut register = Register::new([false, false, false]);
+        register.apply(&operation::not(i as usize));
+        let input = register.measure(i as usize);
+        let expected = true;
+        assert_eq!(input, expected);
+    }
+    #[test]
     // #[ignore = "Indexing issue in register, is weird"]
     fn measure_four_qubits_gives_same_result(
         state in any::<bool>(),
@@ -86,9 +94,6 @@ proptest!(
         // maximally entangle qubit i and i + 1
         reg.apply(&hadamard);
         reg.apply(&cnot);
-        println!("{i}");
-        println!("{}", i+1);
-        reg.print_probabilities();
 
         // this should measure index i and i+1
         assert_eq!(reg.measure(i), reg.measure(i+1));
@@ -120,7 +125,9 @@ proptest!(
     #[ignore = "Apply does not figure out how to swap bits"]
     fn arbitrary_binary_applied_twice_gives_equal_after_swap_is_implemented(op in BinaryOperationAfterSwapIsImplemented::arbitrary_with(0..6)) {
         let mut reg = Register::new([false; 6]);
-        let expected = reg.clone(); reg.apply(&op.0);
+        let expected = reg.clone();
+
+        reg.apply(&op.0);
         reg.apply(&op.0);
 
         assert_eq!(reg, expected);

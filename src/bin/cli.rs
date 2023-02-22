@@ -1,7 +1,14 @@
 use inquire::{error::InquireError, Select};
 use std::{fmt::Display, vec};
 
+<<<<<<< HEAD
 use quant::{operation, register::Register};
+=======
+use quant::{
+    operation,
+    register::Register,
+};
+>>>>>>> 40952ae399fa987571a71699f2eac2a3791da358
 
 enum Choice {
     Show,
@@ -200,10 +207,15 @@ fn handle_apply(reg: &mut Register<4>) {
 
 fn main() {
     let mut reg = Register::new([false; 4]);
+<<<<<<< HEAD
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
         println!("{}", QUARU);
+=======
+
+    loop {
+>>>>>>> 40952ae399fa987571a71699f2eac2a3791da358
         let initial = match initial_prompt() {
             Ok(choice) => choice,
             Err(e) => panic!("Problem selecting an option: {:?}", e),
@@ -216,6 +228,7 @@ fn main() {
         };
     }
 }
+<<<<<<< HEAD
 
 const QUARU: &str = "
   ______      __    __       ___      .______       __    __  
@@ -226,3 +239,5 @@ const QUARU: &str = "
  \\_____\\_____\\\\______/  /__/     \\__\\ | _| `._____| \\______/  
                                                               
 ";
+=======
+>>>>>>> 40952ae399fa987571a71699f2eac2a3791da358

@@ -8,7 +8,7 @@ use rand::prelude::*;
 
 /// A quantum register containing N qubits.
 #[derive(Clone, Debug)]
-pub struct Register<const N: usize> {
+pub struct Register {
     /// Represents the state of the quantum register as a vector with 2^N complex elements.
     ///
     /// The state is a linear combination of the basis vectors:
@@ -20,13 +20,14 @@ pub struct Register<const N: usize> {
     /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
+    size: usize
 }
 
 
-impl<const N: usize> Register<N> {
+impl Register {
 
     /// Creates a new state with an array of booleans with size N 
-    pub fn new(input_bits: [bool; N]) -> Self {
+    pub fn new(input_bits: Vec<bool>) -> Self {
         // Complex 1 by 1 identity matrix
         let base_state = array![[Complex::new(1.0, 0.0)]]; 
         
@@ -38,6 +39,7 @@ impl<const N: usize> Register<N> {
 
         Self {
             state: state_matrix,
+            size: input_bits.len()
         }
     }
     /// Applys a quantum operation to the current state
@@ -47,7 +49,7 @@ impl<const N: usize> Register<N> {
         // Gets the target bit
         let target = op.targets()[0];
         // Calculates the number of matrices in tensor product
-        let num_matrices = N + 1 - op.targets().len();
+        let num_matrices = self.size + 1 - op.targets().len();
 
         // If index i is equal to target bit returns matrix representation of operation
         // otherwise returns 2 by 2 identity matrix
@@ -76,7 +78,7 @@ impl<const N: usize> Register<N> {
     ///
     /// **Panics** if the supplied target is not less than the number of qubits in the register.
     pub fn measure(&mut self, target: usize) -> bool {
-        assert!(target < N);
+        assert!(target < self.size);
 
         let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
         let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
@@ -121,12 +123,13 @@ impl<const N: usize> Register<N> {
 
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
+        let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0N$b}: {}%", i, s.norm_sqr() * 100.0);
+            println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
         }
     }
 }
-impl<const N: usize> PartialEq for Register<N> {
+impl PartialEq for Register {
     fn eq(&self, other: &Self) -> bool {
         (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)
     }

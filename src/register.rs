@@ -136,6 +136,11 @@ impl Register {
             println!("{:0n$b}: {}", i, s);
         }
     }
+
+    /// Returns the number of qubits in the Register
+    pub fn size(&self) -> usize {
+        self.size
+    }
     
 }
 impl PartialEq for Register {

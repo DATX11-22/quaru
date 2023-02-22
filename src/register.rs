@@ -45,7 +45,7 @@ impl<const N: usize> Register<N> {
     /// Input a state and an operation. Outputs the new state
     pub fn apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> &mut Self {
         // Gets the target bit
-        let target = op.targets()[0];
+        let target = op.targets()[ARITY - 1];
         // Calculates the number of matrices in tensor product
         let num_matrices = N + 1 - op.targets().len();
 

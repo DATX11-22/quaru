@@ -89,7 +89,7 @@ proptest!(
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
         let mut reg = Register::new([false; 6]);
         let hadamard = operation::hadamard(i+1);
-        let cnot = operation::cnot(i, i+1);
+        let cnot = operation::cnot(i + 1, i);
 
         // maximally entangle qubit i and i + 1
         reg.apply(&hadamard);
@@ -159,8 +159,8 @@ impl Arbitrary for BinaryOperation {
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let r = rand::thread_rng().gen_range(args.clone());
         let (i, j) = match args.max().unwrap() == r {
-            true => (r - 1, r),
-            false => (r, r + 1),
+            true => (r, r - 1),
+            false => (r + 1, r),
         };
         select(vec![
             BinaryOperation(operation::cnot(i, j)),

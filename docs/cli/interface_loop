@@ -8,7 +8,7 @@ Apply -> 2.
 Unary -> 3a.
 Binary -> 3b.
 
-3a. -> 1. 
+3a. -> 4. 
 ? Select an operation:
 Identity
 Hadamard
@@ -18,7 +18,7 @@ Pauli X
 Pauli Y
 Pauli Z
 
-3b. -> 1.
+3b. -> 4.
 ? Select an operation:
 CNOT
 

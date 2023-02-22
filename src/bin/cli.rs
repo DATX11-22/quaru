@@ -1,16 +1,20 @@
-use std::{fmt::Display, vec};
 use inquire::{error::InquireError, Select};
+use std::{fmt::Display, vec};
 
-use quant::{operation::{identity, hadamard, not, cnot, phase, pauli_y, pauli_z, Operation, self}, register::{self, Register}};
+use quant::{
+    operation,
+    register::Register,
+};
 
 enum Choice {
     Show,
     Apply,
+    Exit,
 }
 
 impl Choice {
     fn choices() -> Vec<Choice> {
-        vec![Choice::Show, Choice::Apply]
+        vec![Choice::Show, Choice::Apply, Choice::Exit]
     }
 }
 
@@ -19,6 +23,7 @@ impl Display for Choice {
         match self {
             Choice::Apply => write!(f, "Apply"),
             Choice::Show => write!(f, "Show"),
+            Choice::Exit => write!(f, "Exit"),
         }
     }
 }
@@ -130,30 +135,38 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
 }
 
 fn qubit_prompt(n: usize, size: usize) -> Result<Vec<usize>, InquireError> {
-    assert!(n < size, "Cannot call operation on more qubits than register size! ({n} > {size}");
+    assert!(
+        n < size,
+        "Cannot call operation on more qubits than register size! ({n} > {size}"
+    );
     let options: Vec<usize> = (0..size).collect();
     let mut targets: Vec<usize> = Vec::new();
-    
+
     for _ in 0..n {
         let target = Select::new("Select a target index: ", options.clone()).prompt()?;
         targets.push(target);
     }
-    
+
     Ok(targets)
 }
 
 fn handle_apply(reg: &mut Register<4>) {
     let op_type = match apply_prompt() {
         Ok(op_type) => op_type,
-        Err(e) => panic!("Problem encountered during operation type selection: {:?}", e),
+        Err(e) => panic!(
+            "Problem encountered during operation type selection: {:?}",
+            e
+        ),
     };
-    
 
     match op_type {
         OperationType::Unary => {
             let op = match unary_prompt() {
                 Ok(op) => op,
-                Err(e) => panic!("Problem encountered when selecting unary operation: {:?}", e),
+                Err(e) => panic!(
+                    "Problem encountered when selecting unary operation: {:?}",
+                    e
+                ),
             };
             let target = match qubit_prompt(1, 4) {
                 Ok(ts) => ts[0],
@@ -167,11 +180,14 @@ fn handle_apply(reg: &mut Register<4>) {
                 UnaryOperation::PauliY => reg.apply(&operation::pauli_y(target)),
                 UnaryOperation::PauliZ => reg.apply(&operation::pauli_z(target)),
             };
-        },
+        }
         OperationType::Binary => {
             let op = match binary_prompt() {
                 Ok(op) => op,
-                Err(e) => panic!("Problem encountered when selecting binary operation: {:?}", e),
+                Err(e) => panic!(
+                    "Problem encountered when selecting binary operation: {:?}",
+                    e
+                ),
             };
             let targets = match qubit_prompt(2, 4) {
                 Ok(ts) => ts,
@@ -183,25 +199,21 @@ fn handle_apply(reg: &mut Register<4>) {
             };
         }
     }
-    
-    
-    
 }
 
 fn main() {
     let mut reg = Register::new([false; 4]);
 
-    let initial = match initial_prompt() {
-        Ok(choice) => choice,
-        Err(e) => panic!("Problem selecting an option: {:?}", e),
-    };
+    loop {
+        let initial = match initial_prompt() {
+            Ok(choice) => choice,
+            Err(e) => panic!("Problem selecting an option: {:?}", e),
+        };
 
-    let result = match initial {
-        Choice::Show => reg.print_state(),
-        Choice::Apply => handle_apply(&mut reg),
-    };
-
-    reg.print_state();
-    
-    
+        match initial {
+            Choice::Show => reg.print_state(),
+            Choice::Apply => handle_apply(&mut reg),
+            Choice::Exit => break,
+        };
+    }
 }

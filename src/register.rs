@@ -131,8 +131,9 @@ impl Register {
 
     /// Prints the state vector in binary representation.
     pub fn print_state(&self) {
+        let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0N$b}: {}", i, s);
+            println!("{:0n$b}: {}", i, s);
         }
     }
     

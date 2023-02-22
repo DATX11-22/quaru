@@ -9,6 +9,8 @@ edition = "2021"
 ndarray = "0.15.0"
 num = "0.4.0"
 rand = "0.8.5"
+inquire = "0.5.3"
 
 [dev-dependencies]
 proptest = "1.1.0"
+

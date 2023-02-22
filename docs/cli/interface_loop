@@ -1,0 +1,24 @@
+1.
+? Select an option:
+Show -> 1.
+Apply -> 2.
+
+2. 
+? Select an operation type:
+Unary -> 3a.
+Binary -> 3b.
+
+3a. -> 1. 
+? Select an operation:
+Identity
+Hadamard
+Phase
+NOT
+Pauli X
+Pauli Y
+Pauli Z
+
+3b. -> 1.
+? Select an operation:
+CNOT
+

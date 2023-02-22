@@ -2,10 +2,11 @@ use inquire::{error::InquireError, Select};
 use std::{fmt::Display, vec};
 
 use quant::{
-    operation,
+    operation::{self, Operation},
     register::Register,
 };
 
+/// Initial choices
 enum Choice {
     Show,
     Apply,
@@ -38,6 +39,13 @@ impl OperationType {
     fn types() -> Vec<OperationType> {
         vec![OperationType::Unary, OperationType::Binary]
     }
+
+    fn size(&self) -> usize {
+        match self {
+            OperationType::Unary => 1,
+            OperationType::Binary => 2,
+        }
+    }
 }
 
 impl Display for OperationType {
@@ -59,6 +67,7 @@ enum UnaryOperation {
 }
 
 impl UnaryOperation {
+    /// Returns a vector of every possible unary operation.
     fn operations() -> Vec<UnaryOperation> {
         vec![
             UnaryOperation::Identity,
@@ -90,6 +99,7 @@ enum BinaryOperation {
 }
 
 impl BinaryOperation {
+    /// Returns a vector of every possible binary operation.
     fn operations() -> Vec<BinaryOperation> {
         vec![BinaryOperation::CNOT, BinaryOperation::Swap]
     }
@@ -104,7 +114,7 @@ impl Display for BinaryOperation {
     }
 }
 
-/// Prompts the user for an initial choice.
+/// Prompts the user for an initial choice and returns the result.
 ///
 /// Choices include:
 /// - Applying an operation
@@ -114,44 +124,133 @@ fn initial_prompt() -> Result<Choice, InquireError> {
     Select::new("Select an option: ", options).prompt()
 }
 
-/// Prompts the user for an operation type.
+/// Given a register size `size` prompts the user for an operation type and returns the result.
 ///
 /// Types include:
-/// - Unary
-/// - Binary
-fn apply_prompt() -> Result<OperationType, InquireError> {
-    let options = OperationType::types();
+/// - Unary (if `size` >= 1)
+/// - Binary (if `size` >= 2)
+fn operation_prompt(size: usize) -> Result<OperationType, InquireError> {
+    let options = OperationType::types()
+        .into_iter()
+        .filter(|op_type| op_type.size() <= size)
+        .collect();
     Select::new("Select an operation type: ", options).prompt()
 }
 
+/// Prompts the user for a unary operation gate and returns the result.
+///
+/// Operations include:
+/// - Identity
+/// - Hadamard
+/// - Phase
+/// - NOT
+/// - Pauli Y
+/// - Pauli Z
 fn unary_prompt() -> Result<UnaryOperation, InquireError> {
     let options = UnaryOperation::operations();
     Select::new("Select an operation: ", options).prompt()
 }
 
+/// Prompts the user for a binary operation gate and returns the result.
+///
+/// Operations include:
+/// - CNOT
+/// - Swap
 fn binary_prompt() -> Result<BinaryOperation, InquireError> {
     let options = BinaryOperation::operations();
     Select::new("Select an operation: ", options).prompt()
 }
 
+/// Given a number of operands `n` and a register size `size`, prompts the user for `n` selections
+/// of indeces from 0 to `size` - 1 and returns the result.
+///
+/// # Panics
+///
+/// Panics if `n` is greater than `size`.
 fn qubit_prompt(n: usize, size: usize) -> Result<Vec<usize>, InquireError> {
     assert!(
-        n < size,
+        n <= size,
         "Cannot call operation on more qubits than register size! ({n} > {size}"
     );
-    let options: Vec<usize> = (0..size).collect();
+
+    let mut options: Vec<usize> = (0..size).collect();
     let mut targets: Vec<usize> = Vec::new();
 
     for _ in 0..n {
         let target = Select::new("Select a target index: ", options.clone()).prompt()?;
         targets.push(target);
+        // removes the selected target to avoid duplicate targets
+        options.remove(target);
     }
 
     Ok(targets)
 }
 
+/// Given a register size `size`, prompts the user for a unary operation and a target qubit and
+/// returns the resulting operation.
+///
+/// # Panics
+/// Panics if an error occurs during any of the prompts or if `size` == 0.
+fn get_unary(size: usize) -> Result<Operation, InquireError> {
+    let unary_op = match unary_prompt() {
+        Ok(op) => op,
+        Err(e) => panic!(
+            "Problem encountered when selecting unary operation: {:?}",
+            e
+        ),
+    };
+
+    let target = match qubit_prompt(1, size) {
+        Ok(ts) => ts[0],
+        Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
+    };
+
+    let op = match unary_op {
+        UnaryOperation::Identity => operation::identity(target),
+        UnaryOperation::Hadamard => operation::hadamard(target),
+        UnaryOperation::Phase => operation::phase(target),
+        UnaryOperation::NOT => operation::not(target),
+        UnaryOperation::PauliY => operation::pauli_y(target),
+        UnaryOperation::PauliZ => operation::pauli_z(target),
+    };
+
+    Ok(op)
+}
+
+/// Given a register size `size`, prompts the user for a binary operation and a target qubit and
+/// returns the resulting operation.
+///
+/// # Panics
+/// Panics if an error occurs during any of the prompts or if `size` < 2.
+fn get_binary(size: usize) -> Result<Operation, InquireError> {
+    let binary_op = match binary_prompt() {
+        Ok(op) => op,
+        Err(e) => panic!(
+            "Problem encountered when selecting binary operation: {:?}",
+            e
+        ),
+    };
+
+    let targets = match qubit_prompt(2, size) {
+        Ok(ts) => ts,
+        Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
+    };
+
+    let op = match binary_op {
+        BinaryOperation::CNOT => operation::cnot(targets[0], targets[1]),
+        BinaryOperation::Swap => operation::swap(targets[0], targets[1]),
+    };
+
+    Ok(op)
+}
+
+/// Given a mutable register `reg` prompts the user for an operation and applies it to the
+/// register.
+///
+/// # Panics
+/// Panics if an error occurs while selecting an operation or when the operation is applied.
 fn handle_apply(reg: &mut Register) {
-    let op_type = match apply_prompt() {
+    let op_type = match operation_prompt(reg.size()) {
         Ok(op_type) => op_type,
         Err(e) => panic!(
             "Problem encountered during operation type selection: {:?}",
@@ -159,50 +258,20 @@ fn handle_apply(reg: &mut Register) {
         ),
     };
 
-    match op_type {
-        OperationType::Unary => {
-            let op = match unary_prompt() {
-                Ok(op) => op,
-                Err(e) => panic!(
-                    "Problem encountered when selecting unary operation: {:?}",
-                    e
-                ),
-            };
-            let target = match qubit_prompt(1, 4) {
-                Ok(ts) => ts[0],
-                Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
-            };
-            match op {
-                UnaryOperation::Identity => reg.apply(&operation::identity(target)),
-                UnaryOperation::Hadamard => reg.apply(&operation::hadamard(target)),
-                UnaryOperation::Phase => reg.apply(&operation::phase(target)),
-                UnaryOperation::NOT => reg.apply(&operation::not(target)),
-                UnaryOperation::PauliY => reg.apply(&operation::pauli_y(target)),
-                UnaryOperation::PauliZ => reg.apply(&operation::pauli_z(target)),
-            };
-        }
-        OperationType::Binary => {
-            let op = match binary_prompt() {
-                Ok(op) => op,
-                Err(e) => panic!(
-                    "Problem encountered when selecting binary operation: {:?}",
-                    e
-                ),
-            };
-            let targets = match qubit_prompt(2, 4) {
-                Ok(ts) => ts,
-                Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
-            };
-            match op {
-                BinaryOperation::CNOT => reg.apply(&operation::cnot(targets[0], targets[1])),
-                BinaryOperation::Swap => reg.apply(&operation::swap(targets[0], targets[1])),
-            };
-        }
-    }
+    let result = match op_type {
+        OperationType::Unary => get_unary(reg.size()),
+        OperationType::Binary => get_binary(reg.size()),
+    };
+
+    match result {
+        Ok(op) => reg.apply(&op),
+        Err(e) => panic!("Problem encountered when applying operation: {:?}", e),
+    };
 }
 
 fn main() {
     let mut reg = Register::new(&[false]);
+    // clear terminal
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {

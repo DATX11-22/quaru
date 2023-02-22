@@ -45,7 +45,7 @@ impl Register {
     /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state
-    pub fn apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> &mut Self {
+    pub fn apply(&mut self, op: &Operation) -> &mut Self {
         // Gets the target bit
         let target = op.targets()[0];
         // Calculates the number of matrices in tensor product

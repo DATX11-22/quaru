@@ -137,7 +137,7 @@ proptest!(
 );
 
 #[derive(Debug, Clone)]
-struct UnaryOperation(Operation<1>);
+struct UnaryOperation(Operation);
 
 impl Arbitrary for UnaryOperation {
     type Parameters = Range<usize>;
@@ -152,7 +152,7 @@ impl Arbitrary for UnaryOperation {
     }
 }
 #[derive(Debug, Clone)]
-struct BinaryOperation(Operation<2>);
+struct BinaryOperation(Operation);
 impl Arbitrary for BinaryOperation {
     type Parameters = Range<usize>;
     type Strategy = Select<BinaryOperation>;
@@ -169,7 +169,7 @@ impl Arbitrary for BinaryOperation {
     }
 }
 #[derive(Debug, Clone)]
-struct BinaryOperationAfterSwapIsImplemented(Operation<2>);
+struct BinaryOperationAfterSwapIsImplemented(Operation);
 impl Arbitrary for BinaryOperationAfterSwapIsImplemented {
     type Parameters = Range<usize>;
     type Strategy = Select<BinaryOperationAfterSwapIsImplemented>;

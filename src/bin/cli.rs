@@ -10,12 +10,13 @@ use quant::{
 enum Choice {
     Show,
     Apply,
+    Measure,
     Exit,
 }
 
 impl Choice {
     fn choices() -> Vec<Choice> {
-        vec![Choice::Show, Choice::Apply, Choice::Exit]
+        vec![Choice::Show, Choice::Apply, Choice::Measure, Choice::Exit]
     }
 }
 
@@ -23,6 +24,7 @@ impl Display for Choice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Choice::Apply => write!(f, "Apply"),
+            Choice::Measure => write!(f, "Measure"),
             Choice::Show => write!(f, "Show"),
             Choice::Exit => write!(f, "Exit"),
         }
@@ -212,6 +214,7 @@ fn qubit_prompt(n: usize, size: usize) -> Result<Vec<usize>, InquireError> {
 /// returns the result containing an operation.
 ///
 /// # Panics
+///
 /// Panics if an error occurs during any of the prompts or if `size` == 0.
 fn get_unary(size: usize) -> Result<Operation, InquireError> {
     let unary_op = match unary_prompt() {
@@ -243,7 +246,9 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 /// returns the result containing an operation.
 ///
 /// # Panics
+///
 /// Panics if an error occurs during any of the prompts or if `size` < 2.
+/// TODO: also panics if targets are not in ascending order. 
 fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let binary_op = match binary_prompt() {
         Ok(op) => op,
@@ -253,15 +258,21 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
         ),
     };
 
-    let targets = match qubit_prompt(2, size) {
+    let mut targets = match qubit_prompt(2, size) {
         Ok(ts) => ts,
         Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
     };
+
+    if targets[1] < targets[0] {
+        targets.swap(1, 0);
+        println!("Descending targets are currently not supported! Swapping {} and {}", targets[1], targets[0]);
+    }
 
     let op = match binary_op {
         BinaryOperation::CNOT => operation::cnot(targets[1], targets[0]),
         BinaryOperation::Swap => operation::swap(targets[1], targets[0]),
     };
+
 
     Ok(op)
 }
@@ -291,6 +302,21 @@ fn handle_apply(reg: &mut Register) {
     };
 }
 
+/// Given a mutable register `reg` prompts the user for an index and measures the qubit at that
+/// index, printing the result.
+/// 
+/// # Panics
+/// Panics if an error occurs while selecting an index.
+fn handle_measure(reg: &mut Register) {
+    let index = match qubit_prompt(1, reg.size()) {
+        Ok(ts) => ts[0],
+        Err(e) => panic!("Problem encountered when selecting a qubit: {:?}", e),
+    };
+    let result = reg.measure(index.clone());
+    println!("Qubit at index {index} measured {result}");
+}
+
+
 fn main() {
     let size = match size_prompt(6) {
         Ok(size) => size,
@@ -314,6 +340,7 @@ fn main() {
         match init {
             Choice::Show => reg.print_state(),
             Choice::Apply => handle_apply(&mut reg),
+            Choice::Measure => handle_measure(&mut reg),
             Choice::Exit => break,
         };
     }

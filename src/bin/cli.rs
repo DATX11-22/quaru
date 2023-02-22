@@ -114,17 +114,29 @@ impl Display for BinaryOperation {
     }
 }
 
-/// Prompts the user for an initial choice and returns the result.
+/// Given a usize `max` prompts the user for a register size and returns a result containing a size.
+///
+/// # Panics
+/// Panics if `max` == 0.
+fn size_prompt(max: usize) -> Result<usize, InquireError> {
+    assert!(max > 0, "Register size must be atleast 1");
+
+    let options: Vec<usize> = (1..=max).collect();
+    Select::new("Select a register size: ", options).prompt()
+}
+
+/// Prompts the user for an initial choice and returns the result containing the choice.
 ///
 /// Choices include:
 /// - Applying an operation
 /// - Showing the register state
-fn initial_prompt() -> Result<Choice, InquireError> {
+fn init_prompt() -> Result<Choice, InquireError> {
     let options = Choice::choices();
     Select::new("Select an option: ", options).prompt()
 }
 
-/// Given a register size `size` prompts the user for an operation type and returns the result.
+/// Given a register size `size` prompts the user for an operation type and returns the result
+/// containing the type.
 ///
 /// Types include:
 /// - Unary (if `size` >= 1)
@@ -137,7 +149,8 @@ fn operation_prompt(size: usize) -> Result<OperationType, InquireError> {
     Select::new("Select an operation type: ", options).prompt()
 }
 
-/// Prompts the user for a unary operation gate and returns the result.
+/// Prompts the user for a unary operation gate and returns the result containing the operation
+/// enum.
 ///
 /// Operations include:
 /// - Identity
@@ -151,7 +164,8 @@ fn unary_prompt() -> Result<UnaryOperation, InquireError> {
     Select::new("Select an operation: ", options).prompt()
 }
 
-/// Prompts the user for a binary operation gate and returns the result.
+/// Prompts the user for a binary operation gate and returns the result containing the operation
+/// enum.
 ///
 /// Operations include:
 /// - CNOT
@@ -162,7 +176,8 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
 }
 
 /// Given a number of operands `n` and a register size `size`, prompts the user for `n` selections
-/// of indeces from 0 to `size` - 1 and returns the result.
+/// of indeces from 0 to `size` - 1 and returns the result containing a vector of the selected
+/// indeces.
 ///
 /// # Panics
 ///
@@ -173,21 +188,28 @@ fn qubit_prompt(n: usize, size: usize) -> Result<Vec<usize>, InquireError> {
         "Cannot call operation on more qubits than register size! ({n} > {size}"
     );
 
-    let mut options: Vec<usize> = (0..size).collect();
+    let options: Vec<usize> = (0..size).collect();
     let mut targets: Vec<usize> = Vec::new();
 
     for _ in 0..n {
-        let target = Select::new("Select a target index: ", options.clone()).prompt()?;
+        let target = Select::new(
+            "Select a target index: ",
+            options
+                .clone()
+                .into_iter()
+                .filter(|o| !targets.contains(o))
+                .collect(),
+        )
+        .prompt()?;
         targets.push(target);
         // removes the selected target to avoid duplicate targets
-        options.remove(target);
     }
 
     Ok(targets)
 }
 
 /// Given a register size `size`, prompts the user for a unary operation and a target qubit and
-/// returns the resulting operation.
+/// returns the result containing an operation.
 ///
 /// # Panics
 /// Panics if an error occurs during any of the prompts or if `size` == 0.
@@ -218,7 +240,7 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 }
 
 /// Given a register size `size`, prompts the user for a binary operation and a target qubit and
-/// returns the resulting operation.
+/// returns the result containing an operation.
 ///
 /// # Panics
 /// Panics if an error occurs during any of the prompts or if `size` < 2.
@@ -237,8 +259,8 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
     };
 
     let op = match binary_op {
-        BinaryOperation::CNOT => operation::cnot(targets[0], targets[1]),
-        BinaryOperation::Swap => operation::swap(targets[0], targets[1]),
+        BinaryOperation::CNOT => operation::cnot(targets[1], targets[0]),
+        BinaryOperation::Swap => operation::swap(targets[1], targets[0]),
     };
 
     Ok(op)
@@ -270,19 +292,26 @@ fn handle_apply(reg: &mut Register) {
 }
 
 fn main() {
-    let mut reg = Register::new(&[false]);
+    let size = match size_prompt(6) {
+        Ok(size) => size,
+        Err(e) => panic!("Problem when selecting a register size: {:?}", e),
+    };
+
+    let init_state = &[false].repeat(size);
+    let mut reg = Register::new(init_state.as_slice());
+
     // clear terminal
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
         println!("{}", QUARU);
 
-        let initial = match initial_prompt() {
+        let init = match init_prompt() {
             Ok(choice) => choice,
             Err(e) => panic!("Problem selecting an option: {:?}", e),
         };
 
-        match initial {
+        match init {
             Choice::Show => reg.print_state(),
             Choice::Apply => handle_apply(&mut reg),
             Choice::Exit => break,

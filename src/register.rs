@@ -6,7 +6,7 @@ use ndarray::{array, linalg, Array2};
 use num::Complex;
 use rand::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
     InvalidTarget{target: usize, n: usize},
     InvalidDimensions(usize, usize),
@@ -162,8 +162,25 @@ impl<const N: usize> Register<N> {
         }
     }
 }
+
 impl<const N: usize> PartialEq for Register<N> {
     fn eq(&self, other: &Self) -> bool {
         (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{operation, register::OperationError};
+
+    use super::Register;
+
+    #[test]
+    fn invalid_target_returns_error() {
+        let mut register = Register::new([false, false]);
+        let res1 = register.try_apply(&operation::cnot(1, 0)).unwrap_err(); // Currently only the first parameter is used
+        let _ = register.try_apply(&operation::cnot(0, 2)).unwrap(); // Currently only the first parameter is used
+
+        assert_eq!(res1, OperationError::InvalidTarget{ target: 1, n: 2 });
     }
 }

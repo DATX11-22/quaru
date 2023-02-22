@@ -27,7 +27,7 @@ pub struct Register {
 impl Register {
 
     /// Creates a new state with an array of booleans with size N 
-    pub fn new(input_bits: Vec<bool>) -> Self {
+    pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
         let base_state = array![[Complex::new(1.0, 0.0)]]; 
         

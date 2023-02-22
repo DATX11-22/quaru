@@ -6,6 +6,13 @@ use ndarray::{array, linalg, Array2};
 use num::Complex;
 use rand::prelude::*;
 
+#[derive(Debug)]
+pub enum OperationError {
+    InvalidTarget{target: usize, n: usize},
+    InvalidDimensions(usize, usize),
+    NoTargets,
+}
+
 /// A quantum register containing N qubits.
 #[derive(Clone, Debug)]
 pub struct Register<const N: usize> {
@@ -43,9 +50,29 @@ impl<const N: usize> Register<N> {
     /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state
+    ///
+    /// **Panics** if the operation is invalid or contains target bits
+    /// outside of the valid range [0, N)
     pub fn apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> &mut Self {
+        self.try_apply(op).expect("Could not apply operation")
+    }
+
+    /// Same as apply, except it returns an error instead of panicing when
+    /// given incorrect arguments
+    pub fn try_apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> Result<&mut Self, OperationError> {
         // Gets the target bit
-        let target = op.targets()[0];
+        let target = *op.targets().first().ok_or(OperationError::NoTargets)?;
+
+        // Check operation validity
+        let expected_size = op.targets().len();
+        let (rows, cols) = (op.matrix().shape()[0], op.matrix().shape()[1]);
+        if (rows, cols) == (expected_size, expected_size) {
+            return Err(OperationError::InvalidDimensions(rows, cols));
+        }
+        if target + ARITY > N {
+            return Err(OperationError::InvalidTarget { target, n: N });
+        }
+
         // Calculates the number of matrices in tensor product
         let num_matrices = N + 1 - op.targets().len();
 
@@ -64,7 +91,8 @@ impl<const N: usize> Register<N> {
 
         // Calculates new state by performing dot product between current state and stage_matrix
         self.state = stage_matrix.dot(&self.state);
-        return self;
+
+        return Ok(self);
     }
 
     /// Measure a quantum bit in the register and returns its measured value.
@@ -76,7 +104,15 @@ impl<const N: usize> Register<N> {
     ///
     /// **Panics** if the supplied target is not less than the number of qubits in the register.
     pub fn measure(&mut self, target: usize) -> bool {
-        assert!(target < N);
+        self.try_measure(target).expect("Could not measure bit")
+    }
+
+
+    /// Same as measure, except it returns an error instead of panicing when given
+    /// invalid arguments
+    pub fn try_measure(&mut self, target: usize) -> Result<bool, OperationError> {
+        // Validate arguments
+        if target >= N { return Err(OperationError::InvalidTarget {target, n: N }); }
 
         let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
         let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
@@ -116,7 +152,7 @@ impl<const N: usize> Register<N> {
             }
         }
 
-        res
+        Ok(res)
     }
 
     /// Prints the probability in percent of falling into different states

@@ -122,8 +122,8 @@ proptest!(
 
         assert_eq!(reg, expected);
     }
+
     #[test]
-    #[ignore = "Apply does not figure out how to swap bits"]
     fn arbitrary_binary_applied_twice_gives_equal_after_swap_is_implemented(op in BinaryOperationAfterSwapIsImplemented::arbitrary_with(0..6)) {
         let mut reg = Register::new([false; 6]);
         let expected = reg.clone();

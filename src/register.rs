@@ -22,17 +22,16 @@ pub struct Register<const N: usize> {
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
 }
 
-
 impl<const N: usize> Register<N> {
-
-    /// Creates a new state with an array of booleans with size N 
+    /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: [bool; N]) -> Self {
         // Complex 1 by 1 identity matrix
-        let base_state = array![[Complex::new(1.0, 0.0)]]; 
-        
+        let base_state = array![[Complex::new(1.0, 0.0)]];
+
         // Creates state by translating bool to qubit
         // then uses qubits in tesnor product to create state
-        let state_matrix = input_bits.iter()
+        let state_matrix = input_bits
+            .iter()
             .map(math::to_qbit_vector)
             .fold(base_state, |a, b| linalg::kron(&b, &a));
 
@@ -44,26 +43,40 @@ impl<const N: usize> Register<N> {
     ///
     /// Input a state and an operation. Outputs the new state
     pub fn apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> &mut Self {
-        // Gets the target bit
-        let target = op.targets()[0];
-        // Calculates the number of matrices in tensor product
-        let num_matrices = N + 1 - op.targets().len();
+        // Permutation which the qubits will be shuffled according to
+        // Ex, perm[0]=3 means the qubit at idx 3 will be moved to idx 0
+        let mut perm = op.targets();
+        for i in 0..N {
+            if !perm.contains(&i) {
+                perm.push(i);
+            }
+        }
 
-        // If index i is equal to target bit returns matrix representation of operation
-        // otherwise returns 2 by 2 identity matrix
-        let get_matrix = |i| { if i == target { return op.matrix(); }
-            else { return operation::identity(0).matrix(); }
-        };
+        // Create a copy of state and permute the qubits according to perm
+        let mut permuted_state = self.state.clone();
+        for i in 0..permuted_state.len() {
+            let mut j: usize = 0;
+            for k in 0..N {
+                j |= ((i >> k) & 1) << perm[k];
+            }
+            permuted_state[(i, 0)] = self.state[(j, 0)];
+        }
 
-        // Complex 1 by 1 identity matrix
-        let base_state = array![[Complex::new(1.0, 0.0)]];
-        // Performs tensor product with the operation matrix and identity matrices
-        let stage_matrix = (0..num_matrices)
-            .map(get_matrix)
-            .fold(base_state, |a, b| linalg::kron(&b, &a));
+        // Tensor product of operation matrix and identity
+        let matrix = linalg::kron(&Array2::eye(1 << (N - ARITY)), &op.matrix());
 
-        // Calculates new state by performing dot product between current state and stage_matrix
-        self.state = stage_matrix.dot(&self.state);
+        // Calculate new state
+        permuted_state = matrix.dot(&permuted_state);
+
+        // Permute back
+        for i in 0..permuted_state.len() {
+            let mut j: usize = 0;
+            for k in 0..N {
+                j |= ((i >> perm[k]) & 1) << k;
+            }
+            self.state[(i, 0)] = permuted_state[(j, 0)];
+        }
+
         return self;
     }
 

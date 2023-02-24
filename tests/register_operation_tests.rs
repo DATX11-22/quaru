@@ -87,6 +87,24 @@ proptest!(
     }
 
     #[test]
+    fn any_entangled_bit_measure_same(i in 0..6 as usize,mut j in 0..6 as usize){
+        let mut reg = Register::new(&[false; 6]);
+        if i == j {
+            j = (j + 1) % 6;
+        }
+        let hadamard = operation::hadamard(j);
+        let cnot = operation::cnot(i, j);
+
+        // maximally entangle qubit i and j
+        reg.apply(&hadamard);
+        reg.apply(&cnot);
+
+        // reg.print_probabilities();
+        // this should measure index i and j
+        assert_eq!(reg.measure(i), reg.measure(j));
+    }
+
+    #[test]
     // #[ignore = "Indexing issue in register, is weird"]
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
         let mut reg = Register::new(&[false; 6]);
@@ -140,7 +158,7 @@ proptest!(
     #[test]
     #[ignore = "Apply does not figure out how to swap bits"]
     fn quantum_teleportation(q0 in StateVector::arbitrary_with(())) {
-        let mut reg = Register::new([false;3]);
+        let mut reg = Register::new(&[false;3]);
 
 
 

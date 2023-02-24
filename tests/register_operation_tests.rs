@@ -1,11 +1,13 @@
 extern crate proptest;
-
 use std::ops::Range;
 
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quant::operation::{self, Operation};
 use quant::register::Register;
+use num::Complex;
+use ndarray::{array, Array2, ArrayBase, OwnedRepr, Dim, linalg};
+use std::{f64::consts, vec};
 
 #[test]
 // #[ignore = "Wait for feature confirmation"]
@@ -134,7 +136,83 @@ proptest!(
         assert_eq!(reg, expected);
     }
 
+
+    #[test]
+    #[ignore = "Apply does not figure out how to swap bits"]
+    fn quantum_teleportation(q0 in StateVector::arbitrary_with(())) {
+        let mut reg = Register::new([false;3]);
+
+
+
+        let base_state = array![[Complex::new(1.0, 0.0)]]; 
+        let expected = q0.clone();
+
+        reg.state = [q0.0, to_qbit_vector(&false) , to_qbit_vector(&false)]
+                    .iter()
+                    .fold(base_state, |a, b| linalg::kron(&b, &a));
+        // reg.state = 
+
+        reg.apply(&operation::hadamard(2));
+        reg.apply(&operation::cnot(2, 1));
+        reg.apply(&operation::cnot(0, 1));
+        reg.apply(&operation::hadamard(0));
+
+        let c_0 = reg.measure(0);
+        let c_1 = reg.measure(1);
+        if c_1 {
+            reg.apply(&operation::not(2));
+        } 
+        if c_0 {
+            reg.apply(&operation::pauli_z(2));
+        }
+        let input = expected.clone(); //hur får jag tag i state vectorn för q2??
+
+        println!("Expected: {:?}", expected.0);
+
+        reg.print_probabilities();
+        assert_eq!(expected, input);
+
+    }
+
 );
+fn set_qubit_in_state(state: &mut ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>, index: usize, value: ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>) {
+   for (i, s) in state.iter_mut().enumerate() {
+        if (i >> index) & 1 == 1 {
+            *s = *value.get((0,0)).unwrap();
+        } else{
+            *s = *value.get((1,0)).unwrap();
+        }
+   } 
+}
+pub fn to_qbit_vector(bit: &bool) -> Array2<Complex<f64>> {
+    match bit {
+        true => array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
+        false => array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
+    }
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
+struct StateVector(ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>);
+
+impl Arbitrary for StateVector {
+    type Parameters = ();
+    type Strategy = Select<StateVector>;
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        let frac = consts::FRAC_1_SQRT_2;
+        select(vec!(
+           StateVector(array![[Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)]]),
+           StateVector(array![[Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)]]),
+           StateVector(array![[Complex::new(frac, 0.0), Complex::new(frac, 0.0)]]),
+           StateVector(array![[Complex::new(frac, 0.0), Complex::new(-frac, 0.0)]]),
+           StateVector(array![[Complex::new(frac, 0.0), Complex::new(0.0, -frac)]]),
+        ))
+       
+    }
+}
+fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {
+    matrix.map(|e| e.into())
+}
 
 #[derive(Debug, Clone)]
 struct UnaryOperation(Operation<1>);

@@ -1,4 +1,6 @@
+use clap::Parser;
 use inquire::{error::InquireError, Select};
+
 use std::{fmt::Display, vec};
 
 use quant::{
@@ -323,17 +325,36 @@ fn handle_show(reg: &Register) {
     println!("Register of size: {}", reg.size());
     reg.print_state();
 }
+
+/// A cli-based ideal quantum computer simulator
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Number of qubits in the quantum register
+    #[arg(short, long)]
+    size: Option<usize>,
+}
+
 fn main() {
-    let size = match size_prompt(6) {
-        Ok(size) => size,
-        Err(e) => panic!("Problem when selecting a register size: {:?}", e),
+    let args = Args::parse();
+
+    // size arg is optional
+    let size = if let Some(n) = args.size {
+        n
+    } else {
+        match size_prompt(6) {
+            Ok(size) => size,
+            Err(e) => panic!("Problem when selecting a register size: {:?}", e),
+        }
     };
 
     let init_state = &[false].repeat(size);
     let mut reg = Register::new(init_state.as_slice());
+    
 
     // clear terminal
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+
 
     loop {
         println!("{}", QUARU);
@@ -363,3 +384,4 @@ const QUARU: &str = "
  \\_____\\_____\\\\______/  /__/     \\__\\ | _| `._____| \\______/  
                                                               
 ";
+

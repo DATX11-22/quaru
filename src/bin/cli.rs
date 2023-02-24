@@ -248,7 +248,7 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 /// # Panics
 ///
 /// Panics if an error occurs during any of the prompts or if `size` < 2.
-/// TODO: also panics if targets are not in ascending order. 
+/// TODO: also panics if targets are not in ascending order.
 fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let binary_op = match binary_prompt() {
         Ok(op) => op,
@@ -265,14 +265,16 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
 
     if targets[1] < targets[0] {
         targets.swap(1, 0);
-        println!("Descending targets are currently not supported! Swapping {} and {}", targets[1], targets[0]);
+        println!(
+            "Descending targets are currently not supported! Swapping {} and {}",
+            targets[1], targets[0]
+        );
     }
 
     let op = match binary_op {
         BinaryOperation::CNOT => operation::cnot(targets[1], targets[0]),
         BinaryOperation::Swap => operation::swap(targets[1], targets[0]),
     };
-
 
     Ok(op)
 }
@@ -304,7 +306,7 @@ fn handle_apply(reg: &mut Register) {
 
 /// Given a mutable register `reg` prompts the user for an index and measures the qubit at that
 /// index, printing the result.
-/// 
+///
 /// # Panics
 /// Panics if an error occurs while selecting an index.
 fn handle_measure(reg: &mut Register) {
@@ -316,7 +318,11 @@ fn handle_measure(reg: &mut Register) {
     println!("Qubit at index {index} measured {result}");
 }
 
-
+/// Given a register `reg` prints an overview of the register state.
+fn handle_show(reg: &Register) {
+    println!("Register of size: {}", reg.size());
+    reg.print_state();
+}
 fn main() {
     let size = match size_prompt(6) {
         Ok(size) => size,
@@ -337,8 +343,10 @@ fn main() {
             Err(e) => panic!("Problem selecting an option: {:?}", e),
         };
 
+        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+
         match init {
-            Choice::Show => reg.print_state(),
+            Choice::Show => handle_show(&reg),
             Choice::Apply => handle_apply(&mut reg),
             Choice::Measure => handle_measure(&mut reg),
             Choice::Exit => break,

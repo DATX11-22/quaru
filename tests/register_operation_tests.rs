@@ -156,7 +156,7 @@ proptest!(
 
 
     #[test]
-    #[ignore = "Apply does not figure out how to swap bits"]
+    // #[ignore = "Apply does not figure out how to swap bits"]
     fn quantum_teleportation(q0 in StateVector::arbitrary_with(())) {
         let mut reg = Register::new(&[false;3]);
 
@@ -168,9 +168,6 @@ proptest!(
         reg.state = [q0.0, to_qbit_vector(&false) , to_qbit_vector(&false)]
                     .iter()
                     .fold(base_state, |a, b| linalg::kron(&b, &a));
-        // reg.state = 
-
-        reg.apply(&operation::hadamard(2));
         reg.apply(&operation::cnot(2, 1));
         reg.apply(&operation::cnot(0, 1));
         reg.apply(&operation::hadamard(0));
@@ -187,21 +184,13 @@ proptest!(
 
         println!("Expected: {:?}", expected.0);
 
-        reg.print_probabilities();
+        // reg.print_probabilities();
         assert_eq!(expected, input);
 
     }
 
 );
-fn set_qubit_in_state(state: &mut ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>, index: usize, value: ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>) {
-   for (i, s) in state.iter_mut().enumerate() {
-        if (i >> index) & 1 == 1 {
-            *s = *value.get((0,0)).unwrap();
-        } else{
-            *s = *value.get((1,0)).unwrap();
-        }
-   } 
-}
+
 pub fn to_qbit_vector(bit: &bool) -> Array2<Complex<f64>> {
     match bit {
         true => array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],

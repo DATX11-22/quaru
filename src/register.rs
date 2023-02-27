@@ -45,7 +45,7 @@ impl Register {
     ///
     /// Input a state and an operation. Outputs the new state
     pub fn apply(&mut self, op: &Operation) -> &mut Self {
-        // Permutation which the qubits will be shuffled according to
+        // Permutation indicating new order of qubits
         // Ex, perm[0]=3 means the qubit at idx 3 will be moved to idx 0
         let mut perm = op.targets();
         for i in 0..self.size {
@@ -55,12 +55,18 @@ impl Register {
         }
 
         // Create a copy of state and permute the qubits according to perm
+        // Cloning here is not really necessary, all elements will be overwritten
         let mut permuted_state = self.state.clone();
+        // Loop through and set each element in permuted_state
         for i in 0..permuted_state.len() {
+            // Calculate the index j so that self.state[j] corresponds to permuted_state[i]
+            // This is done by moving each bit in the number i according to perm
             let mut j: usize = 0;
             for k in 0..self.size {
+                // Copy the kth bit in i to the perm[k]th bit in j
                 j |= ((i >> k) & 1) << perm[k];
             }
+
             permuted_state[(i, 0)] = self.state[(j, 0)];
         }
 
@@ -70,7 +76,7 @@ impl Register {
         // Calculate new state
         permuted_state = matrix.dot(&permuted_state);
 
-        // Permute back
+        // Permute back, similar to above but backwards (perm[k] -> k instead of the other way around)
         for i in 0..permuted_state.len() {
             let mut j: usize = 0;
             for k in 0..self.size {

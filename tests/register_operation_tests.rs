@@ -124,14 +124,21 @@ proptest!(
     }
 
     #[test]
-    fn arbitrary_binary_applied_twice_gives_equal_after_swap_is_implemented(op in BinaryOperationAfterSwapIsImplemented::arbitrary_with(0..6)) {
-        let mut reg = Register::new(&[false; 6]);
-        let expected = reg.clone();
+    fn swap_single_true_qubit(i in 0..5 as usize, j in 0..5 as usize){
+        // qubit i is 1 and all other are 0
+        // qubit i and j are swapped
+        // qubit j should now be the only 1
+        if i != j {
+            let mut qubits = [false; 6];
+            qubits[i] = true;
+            let mut reg = Register::new(&qubits);
+            let op = operation::swap(i, j);
+            reg.apply(&op);
 
-        reg.apply(&op.0);
-        reg.apply(&op.0);
-
-        assert_eq!(reg, expected);
+            for k in 0..5 {
+                assert_eq!(reg.measure(k), k==j);
+            }
+        }
     }
 
 );
@@ -151,34 +158,18 @@ impl Arbitrary for UnaryOperation {
         ])
     }
 }
+
 #[derive(Debug, Clone)]
 struct BinaryOperation(Operation);
 impl Arbitrary for BinaryOperation {
     type Parameters = Range<usize>;
     type Strategy = Select<BinaryOperation>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        let r = rand::thread_rng().gen_range(args.clone());
-        let (i, j) = match args.max().unwrap() == r {
-            true => (r, r - 1),
-            false => (r + 1, r),
-        };
-        select(vec![
-            BinaryOperation(operation::cnot(i, j)),
-            BinaryOperation(operation::swap(i, j)),
-        ])
-    }
-}
-#[derive(Debug, Clone)]
-struct BinaryOperationAfterSwapIsImplemented(Operation);
-impl Arbitrary for BinaryOperationAfterSwapIsImplemented {
-    type Parameters = Range<usize>;
-    type Strategy = Select<BinaryOperationAfterSwapIsImplemented>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let i = rand::thread_rng().gen_range(args.clone());
         let j = rand::thread_rng().gen_range(args);
         select(vec![
-            BinaryOperationAfterSwapIsImplemented(operation::cnot(i, j)),
-            BinaryOperationAfterSwapIsImplemented(operation::swap(i, j)),
+            BinaryOperation(operation::cnot(i, j)),
+            BinaryOperation(operation::swap(i, j)),
         ])
     }
 }

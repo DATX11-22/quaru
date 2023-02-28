@@ -88,7 +88,7 @@ proptest!(
     // #[ignore = "Indexing issue in register, is weird"]
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
         let mut reg = Register::new(&[false; 6]);
-        let hadamard = operation::hadamard(i+1);
+        let hadamard = operation::hadamard(i);
         let cnot = operation::cnot(i + 1, i);
 
         // maximally entangle qubit i and i + 1

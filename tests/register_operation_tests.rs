@@ -88,6 +88,7 @@ proptest!(
     // #[ignore = "Indexing issue in register, is weird"]
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
         let mut reg = Register::new(&[false; 6]);
+
         let hadamard = operation::hadamard(i);
         let cnot = operation::cnot(i + 1, i);
 
@@ -166,24 +167,15 @@ impl Arbitrary for BinaryOperation {
     type Strategy = Select<BinaryOperation>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let i = rand::thread_rng().gen_range(args.clone());
-        let j = rand::thread_rng().gen_range(args);
+
+        let mut j = rand::thread_rng().gen_range(args.clone());
+        while i == j {
+            j = rand::thread_rng().gen_range(args.clone());
+        }
+
         select(vec![
             BinaryOperation(operation::cnot(i, j)),
             BinaryOperation(operation::swap(i, j)),
-        ])
-    }
-}
-#[derive(Debug, Clone)]
-struct BinaryOperationAfterSwapIsImplemented(Operation);
-impl Arbitrary for BinaryOperationAfterSwapIsImplemented {
-    type Parameters = Range<usize>;
-    type Strategy = Select<BinaryOperationAfterSwapIsImplemented>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        let i = rand::thread_rng().gen_range(args.clone());
-        let j = rand::thread_rng().gen_range(args);
-        select(vec![
-            BinaryOperationAfterSwapIsImplemented(operation::cnot(i, j)),
-            BinaryOperationAfterSwapIsImplemented(operation::swap(i, j)),
         ])
     }
 }

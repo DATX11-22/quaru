@@ -20,13 +20,11 @@ pub struct Register {
     /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
-    size: usize
+    size: usize,
 }
 
-
 impl Register {
-
-    /// Creates a new state with an array of booleans with size N 
+    /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
         let base_state = array![[Complex::new(1.0, 0.0)]];
@@ -40,7 +38,7 @@ impl Register {
 
         Self {
             state: state_matrix,
-            size: input_bits.len()
+            size: input_bits.len(),
         }
     }
     /// Applys a quantum operation to the current state

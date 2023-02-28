@@ -173,3 +173,17 @@ impl Arbitrary for BinaryOperation {
         ])
     }
 }
+#[derive(Debug, Clone)]
+struct BinaryOperationAfterSwapIsImplemented(Operation);
+impl Arbitrary for BinaryOperationAfterSwapIsImplemented {
+    type Parameters = Range<usize>;
+    type Strategy = Select<BinaryOperationAfterSwapIsImplemented>;
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        let i = rand::thread_rng().gen_range(args.clone());
+        let j = rand::thread_rng().gen_range(args);
+        select(vec![
+            BinaryOperationAfterSwapIsImplemented(operation::cnot(i, j)),
+            BinaryOperationAfterSwapIsImplemented(operation::swap(i, j)),
+        ])
+    }
+}

@@ -260,22 +260,17 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
         ),
     };
 
-    let mut targets = match qubit_prompt(2, size) {
+    let targets = match qubit_prompt(2, size) {
         Ok(ts) => ts,
         Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
     };
 
-    if targets[1] < targets[0] {
-        targets.swap(1, 0);
-        println!(
-            "Descending targets are currently not supported! Swapping {} and {}",
-            targets[1], targets[0]
-        );
-    }
+    let a = targets[0];
+    let b = targets[1];
 
     let op = match binary_op {
-        BinaryOperation::CNOT => operation::cnot(targets[1], targets[0]),
-        BinaryOperation::Swap => operation::swap(targets[1], targets[0]),
+        BinaryOperation::CNOT => operation::cnot(a, b),
+        BinaryOperation::Swap => operation::swap(a, b),
     };
 
     Ok(op)
@@ -339,6 +334,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
+    println!("{}", QUARU);
     // size arg is optional
     let size = if let Some(n) = args.size {
         n
@@ -352,15 +348,11 @@ fn main() {
 
     let init_state = &[false].repeat(size);
     let mut reg = Register::new(init_state.as_slice());
-    
 
     // clear terminal
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
-
     loop {
-        println!("{}", QUARU);
-
         let init = match init_prompt() {
             Ok(choice) => choice,
             Err(e) => panic!("Problem selecting an option: {:?}", e),
@@ -386,4 +378,3 @@ const QUARU: &str = "
  \\_____\\_____\\\\______/  /__/     \\__\\ | _| `._____| \\______/  
                                                               
 ";
-

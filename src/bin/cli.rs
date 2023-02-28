@@ -91,8 +91,8 @@ impl Display for UnaryOperation {
             UnaryOperation::Hadamard => write!(f, "Hadamard"),
             UnaryOperation::Phase => write!(f, "Phase"),
             UnaryOperation::NOT => write!(f, "NOT"),
-            UnaryOperation::PauliY => write!(f, "PauliY"),
-            UnaryOperation::PauliZ => write!(f, "PauliZ"),
+            UnaryOperation::PauliY => write!(f, "Pauli Y"),
+            UnaryOperation::PauliZ => write!(f, "Pauli Z"),
         }
     }
 }
@@ -335,6 +335,7 @@ struct Args {
     size: Option<usize>,
 }
 
+/// Runs the Quaru shell.
 fn main() {
     let args = Args::parse();
 
@@ -342,7 +343,8 @@ fn main() {
     let size = if let Some(n) = args.size {
         n
     } else {
-        match size_prompt(6) {
+        // 4 max gives a nice wrapping, argument allows for bigger
+        match size_prompt(4) {
             Ok(size) => size,
             Err(e) => panic!("Problem when selecting a register size: {:?}", e),
         }

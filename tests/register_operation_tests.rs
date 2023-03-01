@@ -88,8 +88,9 @@ proptest!(
     // #[ignore = "Indexing issue in register, is weird"]
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
         let mut reg = Register::new(&[false; 6]);
-        let hadamard = operation::hadamard(i+1);
-        let cnot = operation::cnot(i, i + 1);
+
+        let hadamard = operation::hadamard(i);
+        let cnot = operation::cnot(i + 1, i);
 
         // maximally entangle qubit i and i + 1
         reg.apply(&hadamard);
@@ -166,10 +167,12 @@ impl Arbitrary for BinaryOperation {
     type Strategy = Select<BinaryOperation>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let i = rand::thread_rng().gen_range(args.clone());
+
         let mut j = rand::thread_rng().gen_range(args.clone());
         while i == j {
             j = rand::thread_rng().gen_range(args.clone());
         }
+
         select(vec![
             BinaryOperation(operation::cnot(i, j)),
             BinaryOperation(operation::swap(i, j)),

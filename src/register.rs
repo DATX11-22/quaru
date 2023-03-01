@@ -1,6 +1,6 @@
 use crate::{
     math,
-    operation::{self, Operation, OperationTrait},
+    operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
 use num::Complex;
@@ -147,6 +147,20 @@ impl Register {
             println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
         }
     }
+
+    /// Prints the state vector in binary representation.
+    pub fn print_state(&self) {
+        let n = self.size;
+        for (i, s) in self.state.iter().enumerate() {
+            println!("{:0n$b}: {}", i, s);
+        }
+    }
+
+    /// Returns the number of qubits in the Register
+    pub fn size(&self) -> usize {
+        self.size
+    }
+    
 }
 impl PartialEq for Register {
     fn eq(&self, other: &Self) -> bool {

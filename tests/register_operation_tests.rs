@@ -10,7 +10,7 @@ use quant::register::Register;
 #[test]
 // #[ignore = "Wait for feature confirmation"]
 fn measure_on_zero_state_gives_false() {
-    let mut register = Register::new([false]);
+    let mut register = Register::new(&[false]);
     let input = register.measure(0);
     let expected = false;
 
@@ -20,7 +20,7 @@ fn measure_on_zero_state_gives_false() {
 proptest!(
     #[test]
     fn test_not_on_arbitrary_qubit(i in 0..3) {
-        let mut register = Register::new([false, false, false]);
+        let mut register = Register::new(&[false, false, false]);
         register.apply(&operation::not(i as usize));
         let input = register.measure(i as usize);
         let expected = true;
@@ -34,7 +34,7 @@ proptest!(
         state3 in any::<bool>(),
         state4 in any::<bool>()
     ) {
-        let mut register = Register::new([state, state2, state3, state4]);
+        let mut register = Register::new(&[state, state2, state3, state4]);
         //                                  q0     q1       q2     q3
         let input = [
             register.measure(0),
@@ -58,7 +58,7 @@ proptest!(
         state7 in any::<bool>(),
         state8 in any::<bool>()
     ) {
-        let mut register = Register::new([state, state2, state3, state4, state5, state6, state7, state8]);
+        let mut register = Register::new(&[state, state2, state3, state4, state5, state6, state7, state8]);
         let input = [
             register.measure(0),
             register.measure(1),
@@ -75,7 +75,7 @@ proptest!(
 
     #[test]
     fn hadamard_hadamard_retains_original_state(i in 0..3) {
-        let mut reg = Register::new([false,false,false]);
+        let mut reg = Register::new(&[false,false,false]);
         let expected = reg.clone();
 
         let hadamard = operation::hadamard(i as usize);
@@ -87,9 +87,10 @@ proptest!(
     #[test]
     // #[ignore = "Indexing issue in register, is weird"]
     fn first_bell_state_measure_equal(i in 0..5 as usize) {
-        let mut reg = Register::new([false; 6]);
-        let hadamard = operation::hadamard(i+1);
-        let cnot = operation::cnot(i, i+1);
+        let mut reg = Register::new(&[false; 6]);
+
+        let hadamard = operation::hadamard(i);
+        let cnot = operation::cnot(i + 1, i);
 
         // maximally entangle qubit i and i + 1
         reg.apply(&hadamard);
@@ -102,7 +103,7 @@ proptest!(
 
     #[test]
     fn arbitrary_unary_applied_twice_gives_equal(op in UnaryOperation::arbitrary_with(0..6)) {
-        let mut reg = Register::new([false; 6]);
+        let mut reg = Register::new(&[false; 6]);
         let expected = reg.clone();
 
         reg.apply(&op.0);
@@ -114,7 +115,7 @@ proptest!(
 
     #[test]
     fn arbitrary_binary_applied_twice_gives_equal(op in BinaryOperation::arbitrary_with(0..6)) {
-        let mut reg = Register::new([false; 6]);
+        let mut reg = Register::new(&[false; 6]);
         let expected = reg.clone();
 
         reg.apply(&op.0);
@@ -122,22 +123,29 @@ proptest!(
 
         assert_eq!(reg, expected);
     }
+
     #[test]
-    #[ignore = "Apply does not figure out how to swap bits"]
-    fn arbitrary_binary_applied_twice_gives_equal_after_swap_is_implemented(op in BinaryOperationAfterSwapIsImplemented::arbitrary_with(0..6)) {
-        let mut reg = Register::new([false; 6]);
-        let expected = reg.clone();
+    fn swap_single_true_qubit(i in 0..5 as usize, j in 0..5 as usize){
+        // qubit i is 1 and all other are 0
+        // qubit i and j are swapped
+        // qubit j should now be the only 1
+        if i != j {
+            let mut qubits = [false; 6];
+            qubits[i] = true;
+            let mut reg = Register::new(&qubits);
+            let op = operation::swap(i, j);
+            reg.apply(&op);
 
-        reg.apply(&op.0);
-        reg.apply(&op.0);
-
-        assert_eq!(reg, expected);
+            for k in 0..5 {
+                assert_eq!(reg.measure(k), k==j);
+            }
+        }
     }
 
 );
 
 #[derive(Debug, Clone)]
-struct UnaryOperation(Operation<1>);
+struct UnaryOperation(Operation);
 
 impl Arbitrary for UnaryOperation {
     type Parameters = Range<usize>;
@@ -151,34 +159,23 @@ impl Arbitrary for UnaryOperation {
         ])
     }
 }
+
 #[derive(Debug, Clone)]
-struct BinaryOperation(Operation<2>);
+struct BinaryOperation(Operation);
 impl Arbitrary for BinaryOperation {
     type Parameters = Range<usize>;
     type Strategy = Select<BinaryOperation>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        let r = rand::thread_rng().gen_range(args.clone());
-        let (i, j) = match args.max().unwrap() == r {
-            true => (r - 1, r),
-            false => (r, r + 1),
-        };
+        let i = rand::thread_rng().gen_range(args.clone());
+
+        let mut j = rand::thread_rng().gen_range(args.clone());
+        while i == j {
+            j = rand::thread_rng().gen_range(args.clone());
+        }
+
         select(vec![
             BinaryOperation(operation::cnot(i, j)),
             BinaryOperation(operation::swap(i, j)),
-        ])
-    }
-}
-#[derive(Debug, Clone)]
-struct BinaryOperationAfterSwapIsImplemented(Operation<2>);
-impl Arbitrary for BinaryOperationAfterSwapIsImplemented {
-    type Parameters = Range<usize>;
-    type Strategy = Select<BinaryOperationAfterSwapIsImplemented>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        let i = rand::thread_rng().gen_range(args.clone());
-        let j = rand::thread_rng().gen_range(args);
-        select(vec![
-            BinaryOperationAfterSwapIsImplemented(operation::cnot(i, j)),
-            BinaryOperationAfterSwapIsImplemented(operation::swap(i, j)),
         ])
     }
 }

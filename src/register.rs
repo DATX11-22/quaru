@@ -1,6 +1,6 @@
 use crate::{
     math,
-    operation::{self, Operation, OperationTrait},
+    operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
 use num::Complex;
@@ -8,14 +8,14 @@ use rand::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
-    InvalidTarget{target: usize, n: usize},
+    InvalidTarget(usize),
     InvalidDimensions(usize, usize),
     NoTargets,
 }
 
 /// A quantum register containing N qubits.
 #[derive(Clone, Debug)]
-pub struct Register<const N: usize> {
+pub struct Register {
     /// Represents the state of the quantum register as a vector with 2^N complex elements.
     ///
     /// The state is a linear combination of the basis vectors:
@@ -27,24 +27,25 @@ pub struct Register<const N: usize> {
     /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
+    size: usize,
 }
 
-
-impl<const N: usize> Register<N> {
-
-    /// Creates a new state with an array of booleans with size N 
-    pub fn new(input_bits: [bool; N]) -> Self {
+impl Register {
+    /// Creates a new state with an array of booleans with size N
+    pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
-        let base_state = array![[Complex::new(1.0, 0.0)]]; 
-        
+        let base_state = array![[Complex::new(1.0, 0.0)]];
+
         // Creates state by translating bool to qubit
         // then uses qubits in tesnor product to create state
-        let state_matrix = input_bits.iter()
+        let state_matrix = input_bits
+            .iter()
             .map(math::to_qbit_vector)
             .fold(base_state, |a, b| linalg::kron(&b, &a));
 
         Self {
             state: state_matrix,
+            size: input_bits.len(),
         }
     }
     /// Applys a quantum operation to the current state
@@ -53,44 +54,65 @@ impl<const N: usize> Register<N> {
     ///
     /// **Panics** if the operation is invalid or contains target bits
     /// outside of the valid range [0, N)
-    pub fn apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> &mut Self {
-        self.try_apply(op).expect("Could not apply operation")
+    pub fn apply(&mut self, op: &Operation) -> &mut Self {
+        self.try_apply(op).expect("Coult not apply operation")
     }
 
-    /// Same as apply, except it returns an error instead of panicing when
-    /// given incorrect arguments
-    pub fn try_apply<const ARITY: usize>(&mut self, op: &Operation<ARITY>) -> Result<&mut Self, OperationError> {
-        // Gets the target bit
-        let target = *op.targets().first().ok_or(OperationError::NoTargets)?;
-
+    pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {
         // Check operation validity
         let expected_size = op.targets().len();
         let (rows, cols) = (op.matrix().shape()[0], op.matrix().shape()[1]);
         if (rows, cols) == (expected_size, expected_size) {
             return Err(OperationError::InvalidDimensions(rows, cols));
         }
-        if target + ARITY > N {
-            return Err(OperationError::InvalidTarget { target, n: N });
+        if let Some(dup_target) = get_duplicate(&op.targets()) {
+            return Err(OperationError::InvalidTarget(dup_target));
+        }
+        for target in op.targets() {
+            if target >= self.size() {
+                return Err(OperationError::InvalidTarget(target))
+            }
         }
 
-        // Calculates the number of matrices in tensor product
-        let num_matrices = N + 1 - op.targets().len();
+        // Permutation indicating new order of qubits
+        // Ex, perm[0]=3 means the qubit at idx 3 will be moved to idx 0
+        let mut perm = op.targets();
+        for i in 0..self.size {
+            if !perm.contains(&i) {
+                perm.push(i);
+            }
+        }
 
-        // If index i is equal to target bit returns matrix representation of operation
-        // otherwise returns 2 by 2 identity matrix
-        let get_matrix = |i| { if i == target { return op.matrix(); }
-            else { return operation::identity(0).matrix(); }
-        };
+        // Create a copy of state and permute the qubits according to perm
+        // Cloning here is not really necessary, all elements will be overwritten
+        let mut permuted_state = self.state.clone();
+        // Loop through and set each element in permuted_state
+        for i in 0..permuted_state.len() {
+            // Calculate the index j so that self.state[j] corresponds to permuted_state[i]
+            // This is done by moving each bit in the number i according to perm
+            let mut j: usize = 0;
+            for k in 0..self.size {
+                // Copy the kth bit in i to the perm[k]th bit in j
+                j |= ((i >> k) & 1) << perm[k];
+            }
 
-        // Complex 1 by 1 identity matrix
-        let base_state = array![[Complex::new(1.0, 0.0)]];
-        // Performs tensor product with the operation matrix and identity matrices
-        let stage_matrix = (0..num_matrices)
-            .map(get_matrix)
-            .fold(base_state, |a, b| linalg::kron(&b, &a));
+            permuted_state[(i, 0)] = self.state[(j, 0)];
+        }
 
-        // Calculates new state by performing dot product between current state and stage_matrix
-        self.state = stage_matrix.dot(&self.state);
+        // Tensor product of operation matrix and identity
+        let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
+
+        // Calculate new state
+        permuted_state = matrix.dot(&permuted_state);
+
+        // Permute back, similar to above but backwards (perm[k] -> k instead of the other way around)
+        for i in 0..permuted_state.len() {
+            let mut j: usize = 0;
+            for k in 0..self.size {
+                j |= ((i >> perm[k]) & 1) << k;
+            }
+            self.state[(i, 0)] = permuted_state[(j, 0)];
+        }
 
         return Ok(self);
     }
@@ -112,7 +134,7 @@ impl<const N: usize> Register<N> {
     /// invalid arguments
     pub fn try_measure(&mut self, target: usize) -> Result<bool, OperationError> {
         // Validate arguments
-        if target >= N { return Err(OperationError::InvalidTarget {target, n: N }); }
+        if target >= self.size() { return Err(OperationError::InvalidTarget(target)); }
 
         let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
         let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
@@ -157,16 +179,46 @@ impl<const N: usize> Register<N> {
 
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
+        let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0N$b}: {}%", i, s.norm_sqr() * 100.0);
+            println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
         }
     }
-}
 
-impl<const N: usize> PartialEq for Register<N> {
+    /// Prints the state vector in binary representation.
+    pub fn print_state(&self) {
+        let n = self.size;
+        for (i, s) in self.state.iter().enumerate() {
+            println!("{:0n$b}: {}", i, s);
+        }
+    }
+
+    /// Returns the number of qubits in the Register
+    pub fn size(&self) -> usize {
+        self.size
+    }
+    
+}
+impl PartialEq for Register {
     fn eq(&self, other: &Self) -> bool {
         (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)
     }
+}
+
+// Should probably be moved somewhere else
+/// Returns a value which exists multiple times in the input vector, or None
+/// if no such element exists
+fn get_duplicate<T: Ord + Copy + Clone>(vec: &Vec<T>) -> Option<T> {
+    let mut vec_cpy = vec.to_vec();
+    vec_cpy.sort_unstable();
+
+    for i in 1..vec_cpy.len() {
+        if vec_cpy[i] == vec_cpy[i - 1] {
+            return Some(vec_cpy[i]);
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -177,10 +229,11 @@ mod tests {
 
     #[test]
     fn invalid_target_returns_error() {
-        let mut register = Register::new([false, false]);
-        let res1 = register.try_apply(&operation::cnot(1, 0)).unwrap_err(); // Currently only the first parameter is used
-        let _ = register.try_apply(&operation::cnot(0, 2)).unwrap(); // Currently only the first parameter is used
+        let mut register = Register::new(&[false, false]);
+        let res1 = register.try_apply(&operation::cnot(1, 2)).unwrap_err(); // 2 is out of of bounds -> Error
+        let _    = register.try_apply(&operation::cnot(1, 1)).unwrap_err(); // 1 == 1 -> Error
+        let _    = register.try_apply(&operation::cnot(0, 1)).unwrap(); // Valid targets -> No error
 
-        assert_eq!(res1, OperationError::InvalidTarget{ target: 1, n: 2 });
+        assert_eq!(res1, OperationError::InvalidTarget(2));
     }
 }

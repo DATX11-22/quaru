@@ -10,13 +10,14 @@ pub trait OperationTrait {
 }
 
 #[derive(Clone, Debug)]
-pub struct Operation<const ARITY: usize> {
+pub struct Operation {
     matrix: Array2<Complex<f64>>,
-    targets: [usize; ARITY],
+    targets: Vec<usize>,
+    arity: usize,
 }
 
 // TODO: Check if we can return references instead?
-impl<const ARITY: usize> OperationTrait for Operation<ARITY> {
+impl OperationTrait for Operation {
     fn matrix(&self) -> Array2<Complex<f64>> {
         self.matrix.clone()
     }
@@ -26,25 +27,27 @@ impl<const ARITY: usize> OperationTrait for Operation<ARITY> {
     }
 
     fn arity(&self) -> usize {
-        ARITY
+        self.arity
     }
 }
 
-pub fn identity(target: usize) -> Operation<1> {
+pub fn identity(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![[1.0, 0.0], [0.0, 1.0]]),
-        targets: [target],
+        targets: vec![target],
+        arity: 1,
     }
 }
 
-pub fn hadamard(target: usize) -> Operation<1> {
+pub fn hadamard(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(consts::FRAC_1_SQRT_2 * array![[1.0, 1.0], [1.0, -1.0]]),
-        targets: [target],
+        targets: vec![target],
+        arity: 1,
     }
 }
 
-pub fn cnot(control: usize, target: usize) -> Operation<2> {
+pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![
             [1.0, 0.0, 0.0, 0.0],
@@ -52,11 +55,12 @@ pub fn cnot(control: usize, target: usize) -> Operation<2> {
             [0.0, 0.0, 0.0, 1.0],
             [0.0, 0.0, 1.0, 0.0]
         ]),
-        targets: [control, target],
+        targets: vec![control, target],
+        arity: 2,
     }
 }
 
-pub fn swap(target1: usize, target2: usize) -> Operation<2> {
+pub fn swap(target1: usize, target2: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![
             [1.0, 0.0, 0.0, 0.0],
@@ -64,41 +68,46 @@ pub fn swap(target1: usize, target2: usize) -> Operation<2> {
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0]
         ]),
-        targets: [target1, target2],
+        targets: vec![target1, target2],
+        arity: 2,
     }
 }
 
-pub fn phase(target: usize) -> Operation<1> {
+pub fn phase(target: usize) -> Operation {
     Operation {
         matrix: array![
             [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
             [Complex::new(0.0, 0.0), Complex::new(0.0, 1.0)]
         ],
-        targets: [target],
+        targets: vec![target],
+        arity: 1,
     }
 }
 
-pub fn not(target: usize) -> Operation<1> {
+pub fn not(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![[0.0, 1.0], [1.0, 0.0]]),
-        targets: [target],
+        targets: vec![target],
+        arity: 1,
     }
 }
 
-pub fn pauli_y(target: usize) -> Operation<1> {
+pub fn pauli_y(target: usize) -> Operation {
     Operation {
         matrix: array![
             [Complex::new(0.0, 0.0), Complex::new(0.0, -1.0)],
             [Complex::new(0.0, 1.0), Complex::new(0.0, 0.0)]
         ],
-        targets: [target],
+        targets: vec![target],
+        arity: 1,
     }
 }
 
-pub fn pauli_z(target: usize) -> Operation<1> {
+pub fn pauli_z(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![[1.0, 0.0], [0.0, -1.0]]),
-        targets: [target],
+        targets: vec![target],
+        arity: 1,
     }
 }
 

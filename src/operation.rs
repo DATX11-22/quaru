@@ -1,6 +1,6 @@
-use ndarray::{array, Array2};
+use ndarray::{array, Array2, Array, Axis};
 use num::Complex;
-use std::{f64::consts, vec};
+use std::{f64::consts, vec, process::id};
 
 // Naming?
 pub trait OperationTrait {
@@ -111,13 +111,35 @@ pub fn pauli_z(target: usize) -> Operation {
     }
 }
 
+pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
+    let mut targets = controls.clone();
+    targets.push(target);
+    let n = targets.len();
+    let mut id_matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        if i == n-1 {
+            id_matrix.row_mut(i)[i-1] = 1.0;
+        } else if i == n-2 {
+            id_matrix.row_mut(i)[i+1] = 1.0;
+        } else {
+            id_matrix.row_mut(i)[i] = 1.0;
+        }
+    }
+    
+    Operation { 
+        matrix: real_to_complex(id_matrix),
+        targets: targets,
+        arity: controls.len()+1 
+    }
+}
+
 fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {
     matrix.map(|e| e.into())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::OperationTrait;
+    use super::{OperationTrait, toffoli};
     use ndarray::Array2;
     use num::Complex;
 

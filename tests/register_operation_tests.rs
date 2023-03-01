@@ -193,7 +193,7 @@ proptest!(
 
     }
 
-
+    #[test]
     fn superdense_coding(
         m0 in any::<bool>(),
         m1 in any::<bool>()
@@ -202,7 +202,7 @@ proptest!(
         let mut register = Register::new(&[false; 2]);
 
         // Entangle qubit 0 and 1
-        register.apply(&operation::hadamard(1));
+        register.apply(&operation::hadamard(0));
         register.apply(&operation::cnot(0, 1));
 
         register.print_probabilities();
@@ -210,14 +210,14 @@ proptest!(
 
         // Encode the message
         if message == [false, false] {
-            register.apply(&operation::identity(1));
+            register.apply(&operation::identity(0));
         } else if message == [false, true] {
-            register.apply(&operation::not(1));
+            register.apply(&operation::not(0));
         } else if message == [true, false] {
-            register.apply(&operation::pauli_z(1));
+            register.apply(&operation::pauli_z(0));
         } else if message == [true, true] {
-            register.apply(&operation::pauli_z(1));
-            register.apply(&operation::not(1));
+            register.apply(&operation::pauli_z(0));
+            register.apply(&operation::not(0));
         }
 
         register.print_probabilities();
@@ -225,13 +225,13 @@ proptest!(
 
         // Decode message
         register.apply(&operation::cnot(0, 1));
-        register.apply(&operation::hadamard(1));
+        register.apply(&operation::hadamard(0));
 
         register.print_probabilities();
         println!();
 
         println!("Result: {}{}", register.measure(1) as i32, register.measure(0) as i32);
-        assert_eq!(message, [register.measure(1), register.measure(0)]);
+        assert_eq!(message, [register.measure(0), register.measure(1)]);
     }
 
 );

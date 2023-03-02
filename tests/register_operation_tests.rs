@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
-use quaru::operation::{self, Operation};
+use quaru::operation::{self, Operation, toffoli, hadamard};
 use quaru::register::Register;
 
 #[test]

@@ -90,7 +90,7 @@ proptest!(
         let mut reg = Register::new(&[false; 6]);
 
         let hadamard = operation::hadamard(i);
-        let cnot = operation::cnot(i + 1, i);
+        let cnot = operation::cnot(i, i + 1);
 
         // maximally entangle qubit i and i + 1
         reg.apply(&hadamard);

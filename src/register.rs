@@ -6,6 +6,13 @@ use ndarray::{array, linalg, Array2};
 use num::Complex;
 use rand::prelude::*;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum OperationError {
+    InvalidTarget(usize),
+    InvalidDimensions(usize, usize),
+    NoTargets,
+}
+
 /// A quantum register containing N qubits.
 #[derive(Clone, Debug)]
 pub struct Register {
@@ -44,7 +51,29 @@ impl Register {
     /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state
+    ///
+    /// **Panics** if the operation is invalid or contains target bits
+    /// outside of the valid range [0, N)
     pub fn apply(&mut self, op: &Operation) -> &mut Self {
+        self.try_apply(op).expect("Coult not apply operation")
+    }
+
+    pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {
+        // Check operation validity
+        let expected_size = op.targets().len();
+        let (rows, cols) = (op.matrix().shape()[0], op.matrix().shape()[1]);
+        if (rows, cols) == (expected_size, expected_size) {
+            return Err(OperationError::InvalidDimensions(rows, cols));
+        }
+        if let Some(dup_target) = get_duplicate(&op.targets()) {
+            return Err(OperationError::InvalidTarget(dup_target));
+        }
+        for target in op.targets() {
+            if target >= self.size() {
+                return Err(OperationError::InvalidTarget(target))
+            }
+        }
+
         // Permutation indicating new order of qubits
         // Ex, perm[0]=3 means the qubit at idx 3 will be moved to idx 0
         let mut perm = op.targets();
@@ -85,7 +114,7 @@ impl Register {
             self.state[(i, 0)] = permuted_state[(j, 0)];
         }
 
-        return self;
+        return Ok(self);
     }
 
     /// Measure a quantum bit in the register and returns its measured value.
@@ -97,7 +126,15 @@ impl Register {
     ///
     /// **Panics** if the supplied target is not less than the number of qubits in the register.
     pub fn measure(&mut self, target: usize) -> bool {
-        assert!(target < self.size);
+        self.try_measure(target).expect("Could not measure bit")
+    }
+
+
+    /// Same as measure, except it returns an error instead of panicing when given
+    /// invalid arguments
+    pub fn try_measure(&mut self, target: usize) -> Result<bool, OperationError> {
+        // Validate arguments
+        if target >= self.size() { return Err(OperationError::InvalidTarget(target)); }
 
         let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
         let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
@@ -137,7 +174,7 @@ impl Register {
             }
         }
 
-        res
+        Ok(res)
     }
 
     /// Prints the probability in percent of falling into different states
@@ -165,5 +202,38 @@ impl Register {
 impl PartialEq for Register {
     fn eq(&self, other: &Self) -> bool {
         (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)
+    }
+}
+
+// Should probably be moved somewhere else
+/// Returns a value which exists multiple times in the input vector, or None
+/// if no such element exists
+fn get_duplicate<T: Ord + Copy + Clone>(vec: &Vec<T>) -> Option<T> {
+    let mut vec_cpy = vec.to_vec();
+    vec_cpy.sort_unstable();
+
+    for i in 1..vec_cpy.len() {
+        if vec_cpy[i] == vec_cpy[i - 1] {
+            return Some(vec_cpy[i]);
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{operation, register::OperationError};
+
+    use super::Register;
+
+    #[test]
+    fn invalid_target_returns_error() {
+        let mut register = Register::new(&[false, false]);
+        let res1 = register.try_apply(&operation::cnot(1, 2)).unwrap_err(); // 2 is out of of bounds -> Error
+        let _    = register.try_apply(&operation::cnot(1, 1)).unwrap_err(); // 1 == 1 -> Error
+        let _    = register.try_apply(&operation::cnot(0, 1)).unwrap(); // Valid targets -> No error
+
+        assert_eq!(res1, OperationError::InvalidTarget(2));
     }
 }

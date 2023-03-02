@@ -1,4 +1,4 @@
-use quant::{register::Register, operation};
+use quaru::{register::Register, operation};
 
 
 fn main() {

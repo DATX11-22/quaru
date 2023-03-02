@@ -4,8 +4,8 @@ use std::ops::Range;
 
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
-use quant::operation::{self, Operation};
-use quant::register::Register;
+use quaru::operation::{self, Operation};
+use quaru::register::Register;
 
 #[test]
 // #[ignore = "Wait for feature confirmation"]

@@ -55,7 +55,7 @@ pub fn cnot(control: usize, target: usize) -> Operation {
             [0.0, 0.0, 0.0, 1.0],
             [0.0, 0.0, 1.0, 0.0]
         ]),
-        targets: vec![control, target],
+        targets: vec![target, control],
         arity: 2,
     }
 }

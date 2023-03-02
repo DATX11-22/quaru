@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
-use quant::operation::{self, Operation};
+use quant::operation::{self, Operation, hadamard, toffoli, OperationTrait};
 use quant::register::Register;
 
 #[test]
@@ -140,6 +140,30 @@ proptest!(
                 assert_eq!(reg.measure(k), k==j);
             }
         }
+    }
+
+    #[test]
+    fn toffoli_test(i in 2..6 as usize) {
+        let mut reg = Register::new(&[false; 6]);
+        for n in 0..i-1 {
+            reg.apply(&hadamard(n));
+        }
+
+        reg.print_probabilities();
+        println!();
+
+        reg.apply(&toffoli(&(0..i-1).collect(), i-1));
+
+        let control_measure = (0..i-1).all(|n| reg.measure(n));
+        let res = if control_measure {
+            let target_measure = reg.measure(i-1);
+            target_measure
+        } else {
+            let target_measure = reg.measure(i-1);
+            !target_measure
+        };
+
+        assert!(res);
     }
 
 );

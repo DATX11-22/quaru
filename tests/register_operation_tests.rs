@@ -143,23 +143,23 @@ proptest!(
     }
 
     #[test]
-    fn toffoli_test(i in 2..6 as usize) {
+    fn toffoli_test(n in 2..=6 as usize) {
         let mut reg = Register::new(&[false; 6]);
-        for n in 0..i-1 {
-            reg.apply(&hadamard(n));
+        for i in 0..n-1 {
+            reg.apply(&hadamard(i));
         }
 
         reg.print_probabilities();
         println!();
 
-        reg.apply(&toffoli(&(0..i-1).collect(), i-1));
+        reg.apply(&toffoli(&(0..n-1).collect(), n-1));
 
-        let control_measure = (0..i-1).all(|n| reg.measure(n));
+        let control_measure = (0..n-1).all(|i| reg.measure(i));
         let res = if control_measure {
-            let target_measure = reg.measure(i-1);
+            let target_measure = reg.measure(n-1);
             target_measure
         } else {
-            let target_measure = reg.measure(i-1);
+            let target_measure = reg.measure(n-1);
             !target_measure
         };
 

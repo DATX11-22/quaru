@@ -111,13 +111,37 @@ pub fn pauli_z(target: usize) -> Operation {
     }
 }
 
+pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
+    let mut targets = vec![target];
+    targets.append(&mut controls.clone());
+
+    // Calculates the size of the matrix (2^n) where n is the number of target + control qubits
+    let n: usize = (2 as usize).pow(targets.len() as u32);
+
+    // Creates an empty (2^n * 2^n) matrix and starts to fill it in as an identity matrix
+    let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
+    for i in 0..n-2 { // Does not fill in the last two rows
+        matrix.row_mut(i)[i] = 1.0;
+    }
+
+    // The last two rows are to be "swapped", finalizing the not part of the matrix
+    matrix.row_mut(n-1)[n-2] = 1.0;
+    matrix.row_mut(n-2)[n-1] = 1.0;
+    
+    Operation { 
+        matrix: real_to_complex(matrix),
+        targets: targets,
+        arity: controls.len()+1 
+    }
+}
+
 fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {
     matrix.map(|e| e.into())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::OperationTrait;
+    use super::{OperationTrait, toffoli};
     use ndarray::Array2;
     use num::Complex;
 
@@ -133,6 +157,11 @@ mod tests {
             Box::new(not(0)),
             Box::new(pauli_y(0)),
             Box::new(pauli_z(0)),
+            Box::new(toffoli(&vec![0], 1)),
+            Box::new(toffoli(&vec![0, 1], 2)),
+            Box::new(toffoli(&vec![0, 1, 2], 3)),
+            Box::new(toffoli(&vec![0, 1, 2, 3], 4)),
+            Box::new(toffoli(&vec![0, 1, 2, 3, 4], 5)),
         ];
     }
 
@@ -155,6 +184,12 @@ mod tests {
                 1e-8
             ))
         }
+    }
+
+    #[test]
+    fn toffoli2_equals_cnot() {
+        let toffoli_generated_cnot = toffoli(&vec![0], 1);
+        assert!(matrix_is_equal(toffoli_generated_cnot.matrix(), cnot(0, 1).matrix(), 1e-8));
     }
 
     fn matrix_is_equal(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>, tolerance: f64) -> bool {

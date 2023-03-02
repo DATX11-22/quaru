@@ -3,7 +3,7 @@ use inquire::{error::InquireError, Select};
 
 use std::{fmt::Display, vec};
 
-use quant::{
+use quaru::{
     operation::{self, Operation},
     register::Register,
 };

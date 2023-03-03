@@ -97,6 +97,10 @@ impl Display for UnaryOperation {
     }
 }
 
+fn unary_operation_target_name(_: &UnaryOperation) -> [&str; 1] {
+    ["target"]
+}
+
 enum BinaryOperation {
     CNOT,
     Swap,
@@ -115,6 +119,13 @@ impl Display for BinaryOperation {
             BinaryOperation::CNOT => write!(f, "CNOT"),
             BinaryOperation::Swap => write!(f, "Swap"),
         }
+    }
+}
+
+fn binary_operation_target_names(op: &BinaryOperation) -> [&str; 2] {
+    match *op {
+        BinaryOperation::CNOT => ["control", "target"],
+        _ =>                     ["target",  "target"]
     }
 }
 
@@ -186,18 +197,18 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
 /// # Panics
 ///
 /// Panics if `n` is greater than `size`.
-fn qubit_prompt(n: usize, size: usize) -> Result<Vec<usize>, InquireError> {
+fn qubit_prompt<const N: usize>(target_names: [&str; N], size: usize) -> Result<Vec<usize>, InquireError> {
     assert!(
-        n <= size,
-        "Cannot call operation on more qubits than register size! ({n} > {size}"
+        N <= size,
+        "Cannot call operation on more qubits than register size! ({N} > {size}"
     );
 
     let options: Vec<usize> = (0..size).collect();
     let mut targets: Vec<usize> = Vec::new();
 
-    for _ in 0..n {
+    for i in 0..N {
         let target = Select::new(
-            "Select a target index: ",
+            format!("Select a {} index: ", target_names[i]).as_str(),
             options
                 .clone()
                 .into_iter()
@@ -226,7 +237,7 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
         ),
     };
 
-    let target = match qubit_prompt(1, size) {
+    let target = match qubit_prompt(unary_operation_target_name(&unary_op), size) {
         Ok(ts) => ts[0],
         Err(e) => panic!("Problem encountered when selecting index: {e:?}"),
     };
@@ -258,7 +269,7 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
         ),
     };
 
-    let targets = match qubit_prompt(2, size) {
+    let targets = match qubit_prompt(binary_operation_target_names(&binary_op), size) {
         Ok(ts) => ts,
         Err(e) => panic!("Problem encountered when selecting index: {e:?}"),
     };
@@ -304,7 +315,7 @@ fn handle_apply(reg: &mut Register) {
 /// # Panics
 /// Panics if an error occurs while selecting an index.
 fn handle_measure(reg: &mut Register) {
-    let index = match qubit_prompt(1, reg.size()) {
+    let index = match qubit_prompt(["target"], reg.size()) {
         Ok(ts) => ts[0],
         Err(e) => panic!("Problem encountered when selecting a qubit: {e:?}"),
     };

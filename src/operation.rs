@@ -1,5 +1,6 @@
 use ndarray::{array, Array2};
-use num::Complex;
+
+use num::{Complex, complex::ComplexFloat};
 use std::{f64::consts, vec};
 
 // Naming?
@@ -11,7 +12,7 @@ pub trait OperationTrait {
 
 #[derive(Clone, Debug)]
 pub struct Operation {
-    matrix: Array2<Complex<f64>>,
+    pub matrix: Array2<Complex<f64>>,
     targets: Vec<usize>,
     arity: usize,
 }
@@ -55,11 +56,25 @@ pub fn cnot(control: usize, target: usize) -> Operation {
             [0.0, 0.0, 0.0, 1.0],
             [0.0, 0.0, 1.0, 0.0]
         ]),
-        targets: vec![control, target],
+        // targets: vec![control, target],
+        targets: vec![target, control],
         arity: 2,
     }
 }
-
+pub fn qft(n: usize) -> Operation {
+    let mut matrix = Array2::zeros((n,n));
+    let w = consts::E.powc(Complex::new(0.0, 2.0 * consts::PI / n as f64));
+    for i in 0..n as i32 {
+        for j in 0..n as i32 {
+            matrix[(i as usize,j as usize)] = w.powi(i*j)* (1.0 / (n as f64).sqrt());
+        }
+    }
+    Operation {
+        matrix: matrix,
+        targets: (0..n).collect(),
+        arity: n,
+    }
+}
 pub fn swap(target1: usize, target2: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![

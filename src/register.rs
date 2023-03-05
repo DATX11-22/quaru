@@ -48,6 +48,25 @@ impl Register {
             size: input_bits.len(),
         }
     }
+
+    pub fn new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Self {
+        for qubit in input_bits {
+            assert_eq! (qubit.len(), 2);
+            assert! (Self::is_one(qubit));
+        }
+
+        let base_state = array![[Complex::new(1.0, 0.0)]];
+
+        let state_matrix = input_bits
+            .iter()
+            .fold(base_state, |a, b| linalg::kron(&b, &a));
+
+        Self {
+            state: state_matrix,
+            size: input_bits.len(),
+        }
+    }
+
     /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state
@@ -196,6 +215,18 @@ impl Register {
     /// Returns the number of qubits in the Register
     pub fn size(&self) -> usize {
         self.size
+    }
+
+    pub fn is_one(qubit: &Array2<Complex<f64>>) -> bool {
+        let mut total_prob = 0.0;
+        for values in qubit {
+            total_prob = values.norm_sqr();
+        }
+
+        if total_prob < 0.00001 && total_prob > -0.00001 {
+            return true;
+        }
+        return false;
     }
     
 }

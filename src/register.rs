@@ -134,6 +134,14 @@ impl Register {
         res
     }
 
+    pub fn print_nonzero_probabilities(&self) {
+        let n = self.size;
+        for (i, s) in self.state.iter().enumerate() {
+            if s.norm_sqr() > 1e-8 {
+                println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
+            }
+        }
+    }
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
         let n = self.size;

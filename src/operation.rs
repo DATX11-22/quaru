@@ -1,6 +1,6 @@
-use ndarray::{array, Array2};
+use ndarray::{array, Array2, linalg, Axis};
 
-use num::{Complex, complex::ComplexFloat};
+use num::{complex::ComplexFloat, Complex};
 use std::{f64::consts, vec};
 
 // Naming?
@@ -48,6 +48,20 @@ pub fn hadamard(target: usize) -> Operation {
     }
 }
 
+pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
+    let mut matrix = hadamard(targets[0]).matrix();
+    let len = targets.len();
+
+    for i in 1..len {
+        matrix = linalg::kron(&hadamard(targets[i]).matrix(), &matrix);
+    }
+    Operation {
+        matrix: matrix,
+        targets: targets,
+        arity: len,
+    }
+}
+
 pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![
@@ -62,17 +76,76 @@ pub fn cnot(control: usize, target: usize) -> Operation {
     }
 }
 pub fn qft(n: usize) -> Operation {
-    let mut matrix = Array2::zeros((n,n));
+    let mut matrix = Array2::zeros((n, n));
     let w = consts::E.powc(Complex::new(0.0, 2.0 * consts::PI / n as f64));
     for i in 0..n as i32 {
         for j in 0..n as i32 {
-            matrix[(i as usize,j as usize)] = w.powi(i*j)* (1.0 / (n as f64).sqrt());
+            matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (n as f64).sqrt());
         }
     }
     Operation {
         matrix: matrix,
         targets: (0..n).collect(),
-        arity: n,
+        arity: (n as f64).log2() as usize,
+    }
+}
+pub fn to_qunatum_gate(f: &dyn Fn(i32) -> i32, targets: Vec<usize>) -> Operation {
+    let t_len = targets.len();
+    let len : usize = 2_i32.pow(t_len as u32) as usize;
+    let mut matrix: Array2<Complex<f64>> = Array2::zeros((len, len));
+    for i in 0..len {
+        // let val = if i > 0 {f(i)} else {f(0)};
+        let val = f(i as i32);
+        let res_state = to_state(val as u32, len);
+        for j in 0..len{
+            let res_val = res_state[(j, 0)];
+            matrix[(j, i)] = res_val;
+        }
+    }
+    Operation {
+        matrix: matrix,
+        targets: targets,
+        arity: t_len,
+    }
+}
+fn to_state(val : u32, len : usize) -> Array2<Complex<f64>> {
+    let mut state : Array2<Complex<f64>> = Array2::zeros((len, 1));
+    let i = (val % (len as u32)) as usize;
+    state[(i, 0)] = Complex::new(1.0, 0.0);
+    
+    // println!("from val {} \n{:}", val, state);
+    state
+}
+pub fn to_controlled(op : Operation, control : usize) -> Operation{
+    let extend = 2_i32.pow(op.arity as u32) as usize;
+    let mut matrix = Array2::zeros((op.matrix().len_of(Axis(0)) + extend, op.matrix().len_of(Axis(1))+ extend));
+    for i in 0..extend {
+        matrix[(i, i)] = Complex::new(1.0, 0.0);
+    }
+    for i in 0..op.matrix.len_of(Axis(0)) {
+        for j in 0..op.matrix.len_of(Axis(1)){
+            matrix[(i + extend, j + extend)] = op.matrix[(i, j)];
+        }
+    }
+    let mut targets = op.targets();
+    targets.push(control);
+    Operation {
+        matrix: matrix,
+        targets: targets,
+        arity: op.arity + 1,
+    } 
+
+}
+pub fn get_inv(op : Operation) -> Operation {
+    //inverse the matrix
+    let mut matrix = op.matrix();
+    let mut targets = op.targets();
+    // matrix = matrix.inv().unwrap();
+
+    Operation {
+        matrix: matrix,
+        targets: targets,
+        arity: op.arity,
     }
 }
 pub fn swap(target1: usize, target2: usize) -> Operation {

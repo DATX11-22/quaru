@@ -136,18 +136,7 @@ pub fn to_controlled(op : Operation, control : usize) -> Operation{
     } 
 
 }
-pub fn get_inv(op : Operation) -> Operation {
-    //inverse the matrix
-    let mut matrix = op.matrix();
-    let mut targets = op.targets();
-    // matrix = matrix.inv().unwrap();
 
-    Operation {
-        matrix: matrix,
-        targets: targets,
-        arity: op.arity,
-    }
-}
 pub fn swap(target1: usize, target2: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![

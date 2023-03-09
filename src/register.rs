@@ -49,14 +49,28 @@ impl Register {
         }
     }
 
+    /// Creates a new state with a list of 2 dimensional arrays
+    /// of complex numbers. 
+    /// 
+    /// Input qubits as [array![[Complex::new(1.0, 0.0)], array![Complex::new(0.0, 0.0)]]]
+    /// Two qubits looks like this: [array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]], 
+    ///                              array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]]]
+    /// 
+    /// **Panics** if 2 dimensional array doesn't contain 2 elements
+    /// or if their probability doesn't add to 1
     pub fn new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Self {
-        for qubit in input_bits {
-            assert_eq! (qubit.len(), 2);
-            assert! (Self::is_one(qubit));
+        //check if input is correct
+        let res = input_bits
+            .iter()
+            .map(Self::is_qubit);
+        //check if everything was correct otherwise panic
+        for bool in res {
+            assert!(bool);
         }
 
         let base_state = array![[Complex::new(1.0, 0.0)]];
-
+        
+        //create state
         let state_matrix = input_bits
             .iter()
             .fold(base_state, |a, b| linalg::kron(&b, &a));
@@ -65,6 +79,29 @@ impl Register {
             state: state_matrix,
             size: input_bits.len(),
         }
+    }
+
+    /// Checks if input qubit has total probability 1
+    pub fn is_one(qubit: &Array2<Complex<f64>>) -> bool {
+        let mut total_prob = -1.0;
+        //Create total prob by squaring individual values
+        for values in qubit {
+            total_prob += values.norm_sqr();
+        }
+        //Chech if total prob is 1
+        if total_prob.abs() < 0.000001 {
+            return true;
+        }
+        return false;
+    }
+
+    /// Checks that input qubit is correct
+    pub fn is_qubit(qubit: &Array2<Complex<f64>>) -> bool {
+        if qubit.len() == 2 { return Self::is_one(qubit); }
+        return false;
+        //assert_eq! (qubit.len(), 2);
+        //assert! (Self::is_one(qubit));
+        //return true;
     }
 
     /// Applys a quantum operation to the current state
@@ -215,18 +252,6 @@ impl Register {
     /// Returns the number of qubits in the Register
     pub fn size(&self) -> usize {
         self.size
-    }
-
-    pub fn is_one(qubit: &Array2<Complex<f64>>) -> bool {
-        let mut total_prob = 0.0;
-        for values in qubit {
-            total_prob = values.norm_sqr();
-        }
-
-        if total_prob < 0.00001 && total_prob > -0.00001 {
-            return true;
-        }
-        return false;
     }
     
 }

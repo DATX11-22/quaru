@@ -11,6 +11,7 @@ pub enum OperationError {
     InvalidTarget(usize),
     InvalidDimensions(usize, usize),
     NoTargets,
+    InvalidQubit(usize),
 }
 
 /// A quantum register containing N qubits.
@@ -59,13 +60,19 @@ impl Register {
     /// **Panics** if 2 dimensional array doesn't contain 2 elements
     /// or if their probability doesn't add to 1
     pub fn new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Self {
+        Self::try_new_qubits(input_bits).expect("Incorrect input qubits")
+    }
+
+    pub fn try_new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Result<Self, OperationError> {
         //check if input is correct
         let res = input_bits
             .iter()
             .map(Self::is_qubit);
         //check if everything was correct otherwise panic
-        for bool in res {
-            assert!(bool);
+        for (i, bool) in res.enumerate() {
+            if bool {
+                return Err(OperationError::InvalidQubit(i));
+            }
         }
 
         let base_state = array![[Complex::new(1.0, 0.0)]];
@@ -75,10 +82,10 @@ impl Register {
             .iter()
             .fold(base_state, |a, b| linalg::kron(&b, &a));
 
-        Self {
+        return Ok(Self {
             state: state_matrix,
             size: input_bits.len(),
-        }
+        });
     }
 
     /// Checks if input qubit has total probability 1
@@ -99,9 +106,6 @@ impl Register {
     pub fn is_qubit(qubit: &Array2<Complex<f64>>) -> bool {
         if qubit.len() == 2 { return Self::is_one(qubit); }
         return false;
-        //assert_eq! (qubit.len(), 2);
-        //assert! (Self::is_one(qubit));
-        //return true;
     }
 
     /// Applys a quantum operation to the current state

@@ -32,7 +32,6 @@ pub struct Register {
 }
 
 impl Register {
-
     /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
@@ -73,7 +72,7 @@ impl Register {
         }
         for target in op.targets() {
             if target >= self.size() {
-                return Err(OperationError::InvalidTarget(target))
+                return Err(OperationError::InvalidTarget(target));
             }
         }
 
@@ -117,19 +116,19 @@ impl Register {
             self.state[(i, 0)] = permuted_state[(j, 0)];
         }
 
-        return Ok(self);
+        Ok(self)
     }
-
 
     /// Apply a unary operation on all qubits.
     /// Returns a mutable reference to self.
-    /// 
+    ///
     /// Input a unary operation.
-    /// 
+    ///
     /// ***Panics*** if the arity of the operation is not 1.
     /// I.e. if the operation is not unary.
     pub fn apply_all(&mut self, operation: &Operation) -> &mut Self {
-        self.try_apply_all(operation).expect("Could not apply operation")
+        self.try_apply_all(operation)
+            .expect("Could not apply operation")
     }
 
     /// Tries to apply a unary operation on all qubits.
@@ -141,9 +140,11 @@ impl Register {
             return Err(OperationError::InvalidArity(operation.arity()));
         }
 
-        let matrix = (0..self.size).fold(array![[Complex::new(1.0, 0.0)]], |acc, _| linalg::kron(&acc, &operation.matrix()));
+        let matrix = (0..self.size).fold(array![[Complex::new(1.0, 0.0)]], |acc, _| {
+            linalg::kron(&acc, &operation.matrix())
+        });
 
-        // We dont need to do any swapping or target matching since the dimensions should always match if we 
+        // We dont need to do any swapping or target matching since the dimensions should always match if we
         // kron a unary operation reg.size() times.
         self.state = matrix.dot(&self.state);
         Ok(self)
@@ -161,12 +162,13 @@ impl Register {
         self.try_measure(target).expect("Could not measure bit")
     }
 
-
     /// Same as measure, except it returns an error instead of panicing when given
     /// invalid arguments
     pub fn try_measure(&mut self, target: usize) -> Result<bool, OperationError> {
         // Validate arguments
-        if target >= self.size() { return Err(OperationError::InvalidTarget(target)); }
+        if target >= self.size() {
+            return Err(OperationError::InvalidTarget(target));
+        }
 
         let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
         let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
@@ -221,7 +223,7 @@ impl Register {
     pub fn print_state(&self) {
         let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0n$b}: {}", i, s);
+            println!("{i:0n$b}: {s}");
         }
     }
 
@@ -229,7 +231,6 @@ impl Register {
     pub fn size(&self) -> usize {
         self.size
     }
-    
 }
 
 impl PartialEq for Register {
@@ -264,8 +265,8 @@ mod tests {
     fn invalid_target_returns_error() {
         let mut register = Register::new(&[false, false]);
         let res1 = register.try_apply(&operation::cnot(1, 2)).unwrap_err(); // 2 is out of of bounds -> Error
-        let _    = register.try_apply(&operation::cnot(1, 1)).unwrap_err(); // 1 == 1 -> Error
-        let _    = register.try_apply(&operation::cnot(0, 1)).unwrap(); // Valid targets -> No error
+        let _ = register.try_apply(&operation::cnot(1, 1)).unwrap_err(); // 1 == 1 -> Error
+        let _ = register.try_apply(&operation::cnot(0, 1)).unwrap(); // Valid targets -> No error
 
         assert_eq!(res1, OperationError::InvalidTarget(2));
     }

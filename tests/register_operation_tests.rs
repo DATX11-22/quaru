@@ -86,7 +86,7 @@ proptest!(
 
     #[test]
     // #[ignore = "Indexing issue in register, is weird"]
-    fn first_bell_state_measure_equal(i in 0..5 as usize) {
+    fn first_bell_state_measure_equal(i in 0..5_usize) {
         let mut reg = Register::new(&[false; 6]);
 
         let hadamard = operation::hadamard(i);
@@ -125,7 +125,7 @@ proptest!(
     }
 
     #[test]
-    fn swap_single_true_qubit(i in 0..5 as usize, j in 0..5 as usize){
+    fn swap_single_true_qubit(i in 0..5_usize, j in 0..5_usize){
         // qubit i is 1 and all other are 0
         // qubit i and j are swapped
         // qubit j should now be the only 1
@@ -143,7 +143,7 @@ proptest!(
     }
 
     #[test]
-    fn toffoli_test(n in 2..=6 as usize,
+    fn toffoli_test(n in 2..=6_usize,
         s1 in any::<bool>(),
         s2 in any::<bool>(),
         s3 in any::<bool>(),
@@ -160,7 +160,7 @@ proptest!(
         let control_measure = (0..n-1).all(|i| reg.measure(i));
         let res = if control_measure {
             let target_measure = reg.measure(n-1);
-            target_measure == !init_target_value
+            target_measure != init_target_value
         } else {
             let target_measure = reg.measure(n-1);
             target_measure == init_target_value
@@ -170,7 +170,7 @@ proptest!(
     }
 
     #[test]
-    fn apply_all_test(n in 2..=6 as usize) {
+    fn apply_all_test(n in 2..=6_usize) {
         let mut reg1 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
         let mut reg2 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
         

@@ -222,14 +222,13 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
     let unary_op = match unary_prompt() {
         Ok(op) => op,
         Err(e) => panic!(
-            "Problem encountered when selecting unary operation: {:?}",
-            e
+            "Problem encountered when selecting unary operation: {e:?}"
         ),
     };
 
     let target = match qubit_prompt(1, size) {
         Ok(ts) => ts[0],
-        Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
+        Err(e) => panic!("Problem encountered when selecting index: {e:?}"),
     };
 
     let op = match unary_op {
@@ -255,14 +254,13 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let binary_op = match binary_prompt() {
         Ok(op) => op,
         Err(e) => panic!(
-            "Problem encountered when selecting binary operation: {:?}",
-            e
+            "Problem encountered when selecting binary operation: {e:?}"
         ),
     };
 
     let targets = match qubit_prompt(2, size) {
         Ok(ts) => ts,
-        Err(e) => panic!("Problem encountered when selecting index: {:?}", e),
+        Err(e) => panic!("Problem encountered when selecting index: {e:?}"),
     };
 
     let a = targets[0];
@@ -285,8 +283,7 @@ fn handle_apply(reg: &mut Register) {
     let op_type = match operation_prompt(reg.size()) {
         Ok(op_type) => op_type,
         Err(e) => panic!(
-            "Problem encountered during operation type selection: {:?}",
-            e
+            "Problem encountered during operation type selection: {e:?}"
         ),
     };
 
@@ -297,7 +294,7 @@ fn handle_apply(reg: &mut Register) {
 
     match result {
         Ok(op) => reg.apply(&op),
-        Err(e) => panic!("Problem encountered when applying operation: {:?}", e),
+        Err(e) => panic!("Problem encountered when applying operation: {e:?}"),
     };
 }
 
@@ -309,9 +306,9 @@ fn handle_apply(reg: &mut Register) {
 fn handle_measure(reg: &mut Register) {
     let index = match qubit_prompt(1, reg.size()) {
         Ok(ts) => ts[0],
-        Err(e) => panic!("Problem encountered when selecting a qubit: {:?}", e),
+        Err(e) => panic!("Problem encountered when selecting a qubit: {e:?}"),
     };
-    let result = reg.measure(index.clone());
+    let result = reg.measure(index);
     println!("Qubit at index {index} measured {result}");
 }
 
@@ -334,7 +331,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    println!("{}", QUARU);
+    println!("{QUARU}");
     // size arg is optional
     let size = if let Some(n) = args.size {
         n
@@ -342,7 +339,7 @@ fn main() {
         // 4 max gives a nice wrapping, argument allows for bigger
         match size_prompt(4) {
             Ok(size) => size,
-            Err(e) => panic!("Problem when selecting a register size: {:?}", e),
+            Err(e) => panic!("Problem when selecting a register size: {e:?}"),
         }
     };
 
@@ -355,7 +352,7 @@ fn main() {
     loop {
         let init = match init_prompt() {
             Ok(choice) => choice,
-            Err(e) => panic!("Problem selecting an option: {:?}", e),
+            Err(e) => panic!("Problem selecting an option: {e:?}"),
         };
 
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);

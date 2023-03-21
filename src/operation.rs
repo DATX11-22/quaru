@@ -35,7 +35,7 @@ impl Operation {
         let shape = matrix.shape();
         let len = targets.len();
 
-        if shape[0] != len || shape[1] != len {
+        if shape[0] != 2_usize.pow(len as u32)|| shape[1] != 2_usize.pow(len as u32) {
             return None;
         }
 

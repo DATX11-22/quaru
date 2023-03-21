@@ -118,7 +118,6 @@ impl Register {
         }
 
         Ok(self)
-<<<<<<< HEAD
     }
 
 
@@ -148,8 +147,6 @@ impl Register {
         // kron a unary operation reg.size() times.
         self.state = matrix.dot(&self.state);
         Ok(self)
-=======
->>>>>>> 3159dc9c15f0dfdce8286a3faafabb0fbaae8468
     }
 
     /// Measure a quantum bit in the register and returns its measured value.

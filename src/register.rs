@@ -114,7 +114,7 @@ impl Register {
             self.state[(i, 0)] = permuted_state[(j, 0)];
         }
 
-        return Ok(self);
+        Ok(self)
     }
 
     /// Measure a quantum bit in the register and returns its measured value.
@@ -189,7 +189,7 @@ impl Register {
     pub fn print_state(&self) {
         let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0n$b}: {}", i, s);
+            println!("{i:0n$b}: {s}");
         }
     }
 

@@ -116,7 +116,7 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
     targets.append(&mut controls.clone());
 
     // Calculates the size of the matrix (2^n) where n is the number of target + control qubits
-    let n: usize = (2 as usize).pow(targets.len() as u32);
+    let n: usize = 2_usize.pow(targets.len() as u32);
 
     // Creates an empty (2^n * 2^n) matrix and starts to fill it in as an identity matrix
     let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
@@ -130,13 +130,13 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
     
     Operation { 
         matrix: real_to_complex(matrix),
-        targets: targets,
+        targets,
         arity: controls.len()+1 
     }
 }
 
 pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
-    let n: usize = (2 as usize).pow(regsize as u32);
+    let n: usize = 2_usize.pow(regsize as u32);
     let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
     for i in 0..n {
         matrix.row_mut(i)[i] = if i == winner {-1.0} else {1.0};
@@ -153,7 +153,7 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     let mut targets = vec![target];
     targets.append(&mut controls.clone());
 
-    let n: usize = (2 as usize).pow(targets.len() as u32);
+    let n: usize = 2_usize.pow(targets.len() as u32);
 
     let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
     for i in 0..n-1 { 
@@ -181,7 +181,7 @@ mod tests {
     use super::{cnot, hadamard, identity, not, pauli_y, pauli_z, phase, swap};
 
     fn all_ops() -> Vec<Box<dyn OperationTrait>> {
-        return vec![
+        vec![
             Box::new(identity(0)),
             Box::new(hadamard(0)),
             Box::new(cnot(0, 1)),
@@ -195,7 +195,7 @@ mod tests {
             Box::new(toffoli(&vec![0, 1, 2], 3)),
             Box::new(toffoli(&vec![0, 1, 2, 3], 4)),
             Box::new(toffoli(&vec![0, 1, 2, 3, 4], 5)),
-        ];
+        ]
     }
 
     #[test]

@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
-use quaru::operation::{self, Operation, toffoli, hadamard};
+use quaru::operation::{self, toffoli, Operation};
 use quaru::register::Register;
 
 #[test]
@@ -143,24 +143,27 @@ proptest!(
     }
 
     #[test]
-    fn toffoli_test(n in 2..=6 as usize) {
-        let mut reg = Register::new(&[false; 6]);
-        for i in 0..n-1 {
-            reg.apply(&hadamard(i));
-        }
-
-        reg.print_probabilities();
-        println!();
+    fn toffoli_test(n in 2..=6 as usize,
+        s1 in any::<bool>(),
+        s2 in any::<bool>(),
+        s3 in any::<bool>(),
+        s4 in any::<bool>(),
+        s5 in any::<bool>(),
+        s6 in any::<bool>())
+    {
+        let init_state = [s1, s2, s3, s4, s5, s6];
+        let mut reg = Register::new(&init_state);
+        let init_target_value = init_state[n-1];
 
         reg.apply(&toffoli(&(0..n-1).collect(), n-1));
 
         let control_measure = (0..n-1).all(|i| reg.measure(i));
         let res = if control_measure {
             let target_measure = reg.measure(n-1);
-            target_measure
+            target_measure == !init_target_value
         } else {
             let target_measure = reg.measure(n-1);
-            !target_measure
+            target_measure == init_target_value
         };
 
         assert!(res);

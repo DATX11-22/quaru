@@ -170,7 +170,7 @@ proptest!(
     }
 
     #[test]
-    fn apply_all_test(n in 2..=6 as usize) {
+    fn apply_all_test(n in 2..=6_usize) {
         let mut reg1 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
         let mut reg2 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
         

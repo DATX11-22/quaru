@@ -15,6 +15,10 @@ pub trait OperationTrait {
 ///
 /// - `matrix` corresponds to the quantum operator
 /// - `targets` corresponds to the operator operands
+///
+/// # Note
+/// In order for an operation to be considered valid, the matrix shape must be square
+/// with length equal to the number of operands.
 #[derive(Clone, Debug)]
 pub struct Operation {
     matrix: Array2<Complex<f64>>,
@@ -22,22 +26,12 @@ pub struct Operation {
 }
 
 impl Operation {
-    /// Constructs an operation with the given matrix, targets and arity.
+    /// Constructs an operation with the given matrix and targets.
     ///
-    /// Returns an operation if:
-    /// - `matrix` is square with sides equal to number of `targets`
-    /// - number of `targets` is equal to `arity`
+    /// Returns an operation if `matrix` is square with sides equal to number of `targets`.
     ///
     /// Otherwise, returns `None`.
-    pub fn new(
-        matrix: Array2<Complex<f64>>,
-        targets: Vec<usize>,
-        arity: usize,
-    ) -> Option<Operation> {
-        if targets.len() != arity {
-            return None;
-        }
-
+    pub fn new(matrix: Array2<Complex<f64>>, targets: Vec<usize>) -> Option<Operation> {
         let shape = matrix.shape();
         let len = targets.len();
 
@@ -45,10 +39,7 @@ impl Operation {
             return None;
         }
 
-        Some(Operation {
-            matrix,
-            targets,
-        })
+        Some(Operation { matrix, targets })
     }
 }
 
@@ -193,7 +184,6 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
         targets,
     }
 }
-
 
 #[cfg(test)]
 mod tests {

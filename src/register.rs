@@ -134,6 +134,7 @@ impl Register {
         res
     }
 
+    /// Prints the non zero probability in percent of falling into different states
     pub fn print_nonzero_probabilities(&self) {
         let n = self.size;
         for (i, s) in self.state.iter().enumerate() {

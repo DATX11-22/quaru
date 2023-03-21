@@ -169,6 +169,24 @@ proptest!(
         assert!(res);
     }
 
+    #[test]
+    fn apply_all_test(n in 2..=6 as usize) {
+        let mut reg1 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
+        let mut reg2 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
+        
+        (0..reg1.size()).for_each(|i| { reg1.apply(&operation::hadamard(i)); });
+        reg2.apply_all(&operation::hadamard(0));
+
+        assert!(reg1 == reg2)
+    }
+
+    #[test]
+    #[should_panic]
+    fn apply_all_panics_if_not_unary(op in BinaryOperation::arbitrary_with(0..6)) {
+        let mut reg = Register::new(&[false; 6]);
+        reg.apply_all(&op.0);
+    }
+
 );
 
 #[derive(Debug, Clone)]

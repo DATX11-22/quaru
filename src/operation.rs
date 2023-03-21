@@ -9,11 +9,14 @@ pub trait OperationTrait {
     fn arity(&self) -> usize;
 }
 
+/// A quantum computer operation represented by a matrix and targets.
+///
+/// - `matrix` corresponds to the quantum operator
+/// - `targets` corresponds to the operator operands
 #[derive(Clone, Debug)]
 pub struct Operation {
     matrix: Array2<Complex<f64>>,
     targets: Vec<usize>,
-    arity: usize,
 }
 
 impl Operation {
@@ -43,7 +46,6 @@ impl Operation {
         Some(Operation {
             matrix,
             targets,
-            arity,
         })
     }
 }
@@ -59,7 +61,7 @@ impl OperationTrait for Operation {
     }
 
     fn arity(&self) -> usize {
-        self.arity
+        self.targets().len()
     }
 }
 
@@ -67,7 +69,6 @@ pub fn identity(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![[1.0, 0.0], [0.0, 1.0]]),
         targets: vec![target],
-        arity: 1,
     }
 }
 
@@ -75,7 +76,6 @@ pub fn hadamard(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(consts::FRAC_1_SQRT_2 * array![[1.0, 1.0], [1.0, -1.0]]),
         targets: vec![target],
-        arity: 1,
     }
 }
 
@@ -88,7 +88,6 @@ pub fn cnot(control: usize, target: usize) -> Operation {
             [0.0, 0.0, 1.0, 0.0]
         ]),
         targets: vec![target, control],
-        arity: 2,
     }
 }
 
@@ -101,7 +100,6 @@ pub fn swap(target1: usize, target2: usize) -> Operation {
             [0.0, 0.0, 0.0, 1.0]
         ]),
         targets: vec![target1, target2],
-        arity: 2,
     }
 }
 
@@ -112,7 +110,6 @@ pub fn phase(target: usize) -> Operation {
             [Complex::new(0.0, 0.0), Complex::new(0.0, 1.0)]
         ],
         targets: vec![target],
-        arity: 1,
     }
 }
 
@@ -120,7 +117,6 @@ pub fn not(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![[0.0, 1.0], [1.0, 0.0]]),
         targets: vec![target],
-        arity: 1,
     }
 }
 
@@ -131,7 +127,6 @@ pub fn pauli_y(target: usize) -> Operation {
             [Complex::new(0.0, 1.0), Complex::new(0.0, 0.0)]
         ],
         targets: vec![target],
-        arity: 1,
     }
 }
 
@@ -139,7 +134,6 @@ pub fn pauli_z(target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(array![[1.0, 0.0], [0.0, -1.0]]),
         targets: vec![target],
-        arity: 1,
     }
 }
 
@@ -163,8 +157,7 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
 
     Operation {
         matrix: real_to_complex(matrix),
-        targets: targets,
-        arity: controls.len() + 1,
+        targets,
     }
 }
 
@@ -178,7 +171,6 @@ pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
     Operation {
         matrix: real_to_complex(matrix),
         targets: vec![0],
-        arity: regsize,
     }
 }
 
@@ -197,7 +189,6 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(matrix),
         targets,
-        arity: controls.len() + 1,
     }
 }
 

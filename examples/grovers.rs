@@ -23,11 +23,11 @@ fn main() {
 
     let target = args.target;
     let regsize = ((target+1) as f64).log2().ceil() as usize;
-    println!("Regsize: {}", regsize);
+    println!("Regsize: {regsize}");
 
     let result = grovers_algorithm(target, regsize);
 
-    println!("{}", result);
+    println!("{result}");
 }
 
 /// Grover's Algorithm
@@ -125,7 +125,7 @@ fn diffuser(reg: &mut Register) {
 // Calculates the optimal number of iterations needed for U_sU_f
 // to get good amplitudes for the target states.
 fn iterations(search_space: usize) -> usize {
-    (PI / 4.0 * (2.0 as f64).pow(search_space as f64).sqrt() / 1.0).floor() as usize
+    (PI / 4.0 * 2.0_f64.pow(search_space as f64).sqrt() / 1.0).floor() as usize
 }
 
 fn to_decimal(arr: &[bool]) -> usize {

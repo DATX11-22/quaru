@@ -154,19 +154,6 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
     }
 }
 
-pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
-    let n: usize = 2_usize.pow(regsize as u32);
-    let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
-    for i in 0..n {
-        matrix.row_mut(i)[i] = if i == winner { -1.0 } else { 1.0 };
-    }
-
-    Operation {
-        matrix: real_to_complex(matrix),
-        targets: vec![0],
-    }
-}
-
 pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     let mut targets = vec![target];
     targets.append(&mut controls.clone());

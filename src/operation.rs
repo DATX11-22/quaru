@@ -2,6 +2,8 @@ use ndarray::{array, Array2};
 use num::Complex;
 use std::{f64::consts, vec};
 
+use crate::math::real_to_complex;
+
 // Naming?
 pub trait OperationTrait {
     fn matrix(&self) -> Array2<Complex<f64>>;
@@ -192,9 +194,6 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     }
 }
 
-fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {
-    matrix.map(|e| e.into())
-}
 
 #[cfg(test)]
 mod tests {

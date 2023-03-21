@@ -10,6 +10,7 @@ use rand::prelude::*;
 pub enum OperationError {
     InvalidTarget(usize),
     InvalidDimensions(usize, usize),
+    InvalidArity(usize),
     NoTargets,
 }
 
@@ -31,6 +32,7 @@ pub struct Register {
 }
 
 impl Register {
+
     /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
@@ -48,6 +50,7 @@ impl Register {
             size: input_bits.len(),
         }
     }
+
     /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state
@@ -115,6 +118,35 @@ impl Register {
         }
 
         return Ok(self);
+    }
+
+
+    /// Apply a unary operation on all qubits.
+    /// Returns a mutable reference to self.
+    /// 
+    /// Input a unary operation.
+    /// 
+    /// ***Panics*** if the arity of the operation is not 1.
+    /// I.e. if the operation is not unary.
+    pub fn apply_all(&mut self, operation: &Operation) -> &mut Self {
+        self.try_apply_all(operation).expect("Could not apply operation")
+    }
+
+    /// Tries to apply a unary operation on all qubits.
+    /// Returns a Result with either a mutable reference to self or an error
+    /// if the operation given is not unary.
+    pub fn try_apply_all(&mut self, operation: &Operation) -> Result<&mut Self, OperationError> {
+        // Return immediately if arity is not unary
+        if operation.arity() != 1 {
+            return Err(OperationError::InvalidArity(operation.arity()));
+        }
+
+        let matrix = (0..self.size).fold(array![[Complex::new(1.0, 0.0)]], |acc, _| linalg::kron(&acc, &operation.matrix()));
+
+        // We dont need to do any swapping or target matching since the dimensions should always match if we 
+        // kron a unary operation reg.size() times.
+        self.state = matrix.dot(&self.state);
+        Ok(self)
     }
 
     /// Measure a quantum bit in the register and returns its measured value.
@@ -199,6 +231,7 @@ impl Register {
     }
     
 }
+
 impl PartialEq for Register {
     fn eq(&self, other: &Self) -> bool {
         (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)

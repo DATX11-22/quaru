@@ -1,13 +1,14 @@
 use clap::{arg, Parser};
+use ndarray::Array2;
 use num::traits::Pow;
 use quaru::{
-    operation::{cz, hadamard, not, oracle_operation},
-    register::Register,
+    operation::{cz, hadamard, not, Operation},
+    register::Register, math::real_to_complex
 };
 use std::{
     f64::consts::PI,
     fmt::Display,
-    time::{Duration, Instant},
+    time::{Duration, Instant}
 };
 
 #[derive(Parser, Debug)]
@@ -72,9 +73,7 @@ fn grovers_algorithm(winner: usize, regsize: usize) -> GroversResult {
     let start = Instant::now();
 
     // Start with creating a uniform superposition
-    (0..reg.size()).for_each(|i| {
-        reg.apply(&hadamard(i));
-    });
+    reg.apply_all(&hadamard(0));
 
     // Generate oracle matrix
     let oracle = oracle_operation(reg.size(), winner);
@@ -107,19 +106,22 @@ fn grovers_algorithm(winner: usize, regsize: usize) -> GroversResult {
 // amplifying the target state while reducing the amplitude of
 // other states.
 fn diffuser(reg: &mut Register) {
-    (0..reg.size()).for_each(|i| {
-        reg.apply(&hadamard(i));
-    });
-    (0..reg.size()).for_each(|i| {
-        reg.apply(&not(i));
-    });
+    reg.apply_all(&hadamard(0));
+    reg.apply_all(&not(0));
     reg.apply(&cz(&(0..reg.size() - 1).collect(), reg.size() - 1));
-    (0..reg.size()).for_each(|i| {
-        reg.apply(&not(i));
-    });
-    (0..reg.size()).for_each(|i| {
-        reg.apply(&hadamard(i));
-    });
+    reg.apply_all(&not(0));
+    reg.apply_all(&hadamard(0));
+}
+
+pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
+    let n: usize = 2_usize.pow(regsize as u32);
+    let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        matrix.row_mut(i)[i] = if i == winner { -1.0 } else { 1.0 };
+    }
+
+    let op = Operation::new(real_to_complex(matrix), (0..regsize).collect()).expect("Could not create oracle operation");
+    op
 }
 
 // Calculates the optimal number of iterations needed for U_sU_f

@@ -1,21 +1,21 @@
-//! The `operation` module provides quantum operation 
+//! The `operation` module provides quantum operation
 //! capabilities to a quantum register using matrix representations.
-//! 
+//!
 //! # Examples
-//! You can explicitly create an [`Operation`](struct@Operation) by 
+//! You can explicitly create an [`Operation`](struct@Operation) by
 //! providing a complex matrix and targets to [`Operation::new()`]:
 //!
 //! ```
 //! use ndarray::{array, Array2};
 //! use quaru::operation::Operation;
 //! use quaru::math::real_to_complex;
-//! 
+//!
 //! let matrix = real_to_complex(array![[1.0, 0.0], [0.0, 1.0]]);
 //! let targets = vec![0];
 //!
 //! let identity: Option<Operation> = Operation::new(matrix, targets);
 //! ```
-//! 
+//!
 //! If the custom constructed operation is invalid, [`None`] is returned.
 //!
 //! You can avoid this for already pre-defined operations:
@@ -25,8 +25,6 @@
 //!
 //! let identity: Operation = identity(0);
 //! ```
-//!
-//! 
 use ndarray::{array, Array2};
 use std::{f64::consts, vec};
 use crate::math::{real_arr_to_complex, c64, new_complex};
@@ -94,7 +92,7 @@ pub fn identity(target: usize) -> Operation {
 }
 
 /// Returns the hadamard operation for the given `target` qubit.
-/// 
+///
 /// Creates an equal superposition of the target qubit's basis states.
 pub fn hadamard(target: usize) -> Operation {
     Operation {
@@ -103,9 +101,9 @@ pub fn hadamard(target: usize) -> Operation {
     }
 }
 
-/// Returns the controlled NOT operation based on the given `control` qubit and 
+/// Returns the controlled NOT operation based on the given `control` qubit and
 /// `target` qubit.
-/// 
+///
 /// Flips the target qubit if and only if the control qubit is |1⟩.
 pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
@@ -135,8 +133,8 @@ pub fn swap(target_1: usize, target_2: usize) -> Operation {
 }
 
 /// Returns the phase operation for the given `target` qubit.
-/// 
-/// Maps the basis states |0⟩ -> |0⟩ and |1⟩ -> i|1⟩, modifying the 
+///
+/// Maps the basis states |0⟩ -> |0⟩ and |1⟩ -> i|1⟩, modifying the
 /// phase of the quantum state.
 pub fn phase(target: usize) -> Operation {
     Operation {
@@ -150,7 +148,7 @@ pub fn phase(target: usize) -> Operation {
 
 /// Returns the NOT operation for the given `target` qubit.
 ///
-/// Maps the basis states |0⟩ -> |1⟩ and |1⟩ -> |0⟩. 
+/// Maps the basis states |0⟩ -> |1⟩ and |1⟩ -> |0⟩.
 ///
 /// Also referred to as the Pauli-X operation.
 pub fn not(target: usize) -> Operation {
@@ -161,7 +159,7 @@ pub fn not(target: usize) -> Operation {
 }
 
 /// Returns the Pauli-Y operation for a given `target` qubit.
-/// 
+///
 /// Maps the basis states |0⟩ -> i|1⟩ and |1⟩ -> -i|0⟩.
 pub fn pauli_y(target: usize) -> Operation {
     Operation {
@@ -186,9 +184,9 @@ pub fn pauli_z(target: usize) -> Operation {
 /// Returns the controlled NOT operation for the given number of `control` qubits on the `target` qubit.
 ///
 /// Flips the target qubit if and only if controls are |1⟩.
-pub fn cnx(controls: &Vec<usize>, target: usize) -> Operation {
+pub fn cnx(controls: &[usize], target: usize) -> Operation {
     let mut targets = vec![target];
-    targets.append(&mut controls.clone());
+    targets.append(&mut controls.to_owned());
 
     // Calculates the size of the matrix (2^n) where n is the number of target + control qubits
     let n: usize = 2_usize.pow(targets.len() as u32);
@@ -215,9 +213,9 @@ pub fn cnx(controls: &Vec<usize>, target: usize) -> Operation {
 ///
 /// Maps the basis states of the target to |0⟩ -> |0⟩ and |1⟩ -> -|1⟩ if and only if the controls
 /// are |1⟩.
-pub fn cnz(controls: &Vec<usize>, target: usize) -> Operation {
+pub fn cnz(controls: &[usize], target: usize) -> Operation {
     let mut targets = vec![target];
-    targets.append(&mut controls.clone());
+    targets.append(&mut controls.to_owned());
 
     let n: usize = 2_usize.pow(targets.len() as u32);
 

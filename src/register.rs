@@ -159,9 +159,9 @@ impl Register {
             // Calculate the index j so that self.state[j] corresponds to permuted_state[i]
             // This is done by moving each bit in the number i according to perm
             let mut j: usize = 0;
-            for k in 0..self.size {
+            for (k, v) in perm.iter().enumerate().take(self.size) {
                 // Copy the kth bit in i to the perm[k]th bit in j
-                j |= ((i >> k) & 1) << perm[k];
+                j |= ((i >> k) & 1) << v;
             }
 
             permuted_state[(i, 0)] = self.state[(j, 0)];
@@ -176,8 +176,8 @@ impl Register {
         // Permute back, similar to above but backwards (perm[k] -> k instead of the other way around)
         for i in 0..permuted_state.len() {
             let mut j: usize = 0;
-            for k in 0..self.size {
-                j |= ((i >> perm[k]) & 1) << k;
+            for (k, v) in perm.iter().enumerate().take(self.size) {
+                j |= ((i >> v) & 1) << k;
             }
             self.state[(i, 0)] = permuted_state[(j, 0)];
         }
@@ -309,7 +309,7 @@ impl PartialEq for Register {
 // Should probably be moved somewhere else
 /// Returns a value which exists multiple times in the input vector, or None
 /// if no such element exists
-fn get_duplicate<T: Ord + Copy + Clone>(vec: &Vec<T>) -> Option<T> {
+fn get_duplicate<T: Ord + Copy + Clone>(vec: &[T]) -> Option<T> {
     let mut vec_cpy = vec.to_vec();
     vec_cpy.sort_unstable();
 

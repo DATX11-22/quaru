@@ -1,3 +1,5 @@
+//! The `math` module includes functions for using more easily using complex numbers.
+
 use ndarray::{array, Array2};
 use num::Complex;
 

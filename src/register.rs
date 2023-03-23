@@ -1,3 +1,4 @@
+//! The `register` module provides quantum register functionality.
 use crate::{
     math,
     operation::{Operation, OperationTrait},
@@ -6,10 +7,14 @@ use ndarray::{array, linalg, Array2};
 use num::Complex;
 use rand::prelude::*;
 
+/// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
+    /// Occurs when target is out of range or duplicate targets are given.
     InvalidTarget(usize),
+    /// Occurs when an operation with invalid dimensions is given.
     InvalidDimensions(usize, usize),
+    /// Occurs when an operation with an invalid arity is given.
     InvalidArity(usize),
     NoTargets,
     InvalidQubit(usize),

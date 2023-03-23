@@ -263,11 +263,11 @@ mod tests {
             Box::new(not(0)),
             Box::new(pauli_y(0)),
             Box::new(pauli_z(0)),
-            Box::new(cnx(&vec![0], 1)),
-            Box::new(cnx(&vec![0, 1], 2)),
-            Box::new(cnx(&vec![0, 1, 2], 3)),
-            Box::new(cnx(&vec![0, 1, 2, 3], 4)),
-            Box::new(cnx(&vec![0, 1, 2, 3, 4], 5)),
+            Box::new(cnx(&[0], 1)),
+            Box::new(cnx(&[0, 1], 2)),
+            Box::new(cnx(&[0, 1, 2], 3)),
+            Box::new(cnx(&[0, 1, 2, 3], 4)),
+            Box::new(cnx(&[0, 1, 2, 3, 4], 5)),
         ]
     }
 
@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn toffoli2_equals_cnot() {
-        let toffoli_generated_cnot = cnx(&vec![0], 1);
+        let toffoli_generated_cnot = cnx(&[0], 1);
         assert!(matrix_is_equal(
             toffoli_generated_cnot.matrix(),
             cnot(0, 1).matrix(),

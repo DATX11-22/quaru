@@ -1,3 +1,32 @@
+//! The `operation` module provides quantum operation 
+//! capabilities to a quantum register using matrix representations.
+//! 
+//! # Examples
+//! You can explicitly create an [`Operation`](struct@Operation) by 
+//! providing a complex matrix and targets to [`Operation::new()`]:
+//!
+//! ```
+//! use ndarray::{array, Array2};
+//! use operation::Operation;
+//! use crate::math::real_to_complex;
+//! 
+//! let matrix = real_to_complex(array![[1.0, 0.0], [0.0, 1.0]]);
+//! let targets = vec![0];
+//!
+//! let identity: Option<Operation> = Operation::new(matrix, targets);
+//! ```
+//! 
+//! If the custom constructed operation is invalid, [`None`] is returned.
+//!
+//! You can avoid this for already pre-defined operations:
+//!
+//! ```
+//! use operation::Operation;
+//!
+//! let identity: Operation = Operation::identity(0);
+//! ```
+//!
+//! 
 use ndarray::{array, Array2};
 use std::{f64::consts, vec};
 use crate::math::{real_arr_to_complex, c64, new_complex};
@@ -56,6 +85,7 @@ impl OperationTrait for Operation {
     }
 }
 
+/// Returns the identity operation for some `target` qubit.
 pub fn identity(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![[1.0, 0.0], [0.0, 1.0]]),
@@ -63,6 +93,9 @@ pub fn identity(target: usize) -> Operation {
     }
 }
 
+/// Returns the hadamard operation for the given `target` qubit.
+/// 
+/// Creates an equal superposition of the target qubit's basis states.
 pub fn hadamard(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(consts::FRAC_1_SQRT_2 * array![[1.0, 1.0], [1.0, -1.0]]),
@@ -70,6 +103,10 @@ pub fn hadamard(target: usize) -> Operation {
     }
 }
 
+/// Returns the controlled NOT operation based on the given `control` qubit and 
+/// `target` qubit.
+/// 
+/// Flips the target qubit if and only if the control qubit is |1⟩.
 pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![
@@ -82,7 +119,10 @@ pub fn cnot(control: usize, target: usize) -> Operation {
     }
 }
 
-pub fn swap(target1: usize, target2: usize) -> Operation {
+/// Returns the swap operation for the given target qubits.
+///
+/// Swaps two qubits in the register.
+pub fn swap(target_1: usize, target_2: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![
             [1.0, 0.0, 0.0, 0.0],
@@ -90,10 +130,14 @@ pub fn swap(target1: usize, target2: usize) -> Operation {
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0]
         ]),
-        targets: vec![target1, target2],
+        targets: vec![target_1, target_2],
     }
 }
 
+/// Returns the phase operation for the given `target` qubit.
+/// 
+/// Maps the basis states |0⟩ -> |0⟩ and |1⟩ -> i|1⟩, modifying the 
+/// phase of the quantum state.
 pub fn phase(target: usize) -> Operation {
     Operation {
         matrix: array![
@@ -104,6 +148,11 @@ pub fn phase(target: usize) -> Operation {
     }
 }
 
+/// Returns the NOT operation for the given `target` qubit.
+///
+/// Maps the basis states |0⟩ -> |1⟩ and |1⟩ -> |0⟩. 
+///
+/// Also referred to as the Pauli-X operation.
 pub fn not(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![[0.0, 1.0], [1.0, 0.0]]),
@@ -111,6 +160,9 @@ pub fn not(target: usize) -> Operation {
     }
 }
 
+/// Returns the Pauli-Y operation for a given `target` qubit.
+/// 
+/// Maps the basis states |0⟩ -> i|1⟩ and |1⟩ -> -i|0⟩.
 pub fn pauli_y(target: usize) -> Operation {
     Operation {
         matrix: array![
@@ -121,6 +173,9 @@ pub fn pauli_y(target: usize) -> Operation {
     }
 }
 
+/// Returns the Pauli-Z operation for a given `target` qubit.
+///
+/// Maps the basis states |0⟩ -> |0⟩ and |1⟩ -> -|1⟩
 pub fn pauli_z(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![[1.0, 0.0], [0.0, -1.0]]),
@@ -128,6 +183,9 @@ pub fn pauli_z(target: usize) -> Operation {
     }
 }
 
+/// Returns the toffoli operation for the given number of `control` qubit on the `target` qubit.
+///
+/// Flips the target qubit if and only if controls are |1⟩.
 pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
     let mut targets = vec![target];
     targets.append(&mut controls.clone());
@@ -152,6 +210,11 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
     }
 }
 
+/// Returns a controlled Pauli-Z operation for the given number of `control` qubits on the `target`
+/// qubit.
+///
+/// Maps the basis states of the target to |0⟩ -> |0⟩ and |1⟩ -> -|1⟩ if and only if the controls
+/// are |1⟩.
 pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     let mut targets = vec![target];
     targets.append(&mut controls.clone());

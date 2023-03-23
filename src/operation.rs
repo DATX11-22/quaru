@@ -7,8 +7,8 @@
 //!
 //! ```
 //! use ndarray::{array, Array2};
-//! use operation::Operation;
-//! use crate::math::real_to_complex;
+//! use quaru::operation::Operation;
+//! use quaru::math::real_to_complex;
 //! 
 //! let matrix = real_to_complex(array![[1.0, 0.0], [0.0, 1.0]]);
 //! let targets = vec![0];
@@ -21,9 +21,9 @@
 //! You can avoid this for already pre-defined operations:
 //!
 //! ```
-//! use operation::Operation;
+//! use quaru::operation::{Operation, identity};
 //!
-//! let identity: Operation = Operation::identity(0);
+//! let identity: Operation = identity(0);
 //! ```
 //!
 //! 
@@ -183,10 +183,10 @@ pub fn pauli_z(target: usize) -> Operation {
     }
 }
 
-/// Returns the toffoli operation for the given number of `control` qubit on the `target` qubit.
+/// Returns the controlled NOT operation for the given number of `control` qubits on the `target` qubit.
 ///
 /// Flips the target qubit if and only if controls are |1⟩.
-pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
+pub fn cnx(controls: &Vec<usize>, target: usize) -> Operation {
     let mut targets = vec![target];
     targets.append(&mut controls.clone());
 
@@ -215,7 +215,7 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
 ///
 /// Maps the basis states of the target to |0⟩ -> |0⟩ and |1⟩ -> -|1⟩ if and only if the controls
 /// are |1⟩.
-pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
+pub fn cnz(controls: &Vec<usize>, target: usize) -> Operation {
     let mut targets = vec![target];
     targets.append(&mut controls.clone());
 
@@ -249,7 +249,7 @@ pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
 
 #[cfg(test)]
 mod tests {
-    use super::{toffoli, OperationTrait};
+    use super::{cnx, OperationTrait};
     use ndarray::Array2;
     use crate::math::c64;
 
@@ -265,11 +265,11 @@ mod tests {
             Box::new(not(0)),
             Box::new(pauli_y(0)),
             Box::new(pauli_z(0)),
-            Box::new(toffoli(&vec![0], 1)),
-            Box::new(toffoli(&vec![0, 1], 2)),
-            Box::new(toffoli(&vec![0, 1, 2], 3)),
-            Box::new(toffoli(&vec![0, 1, 2, 3], 4)),
-            Box::new(toffoli(&vec![0, 1, 2, 3, 4], 5)),
+            Box::new(cnx(&vec![0], 1)),
+            Box::new(cnx(&vec![0, 1], 2)),
+            Box::new(cnx(&vec![0, 1, 2], 3)),
+            Box::new(cnx(&vec![0, 1, 2, 3], 4)),
+            Box::new(cnx(&vec![0, 1, 2, 3, 4], 5)),
         ]
     }
 
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn toffoli2_equals_cnot() {
-        let toffoli_generated_cnot = toffoli(&vec![0], 1);
+        let toffoli_generated_cnot = cnx(&vec![0], 1);
         assert!(matrix_is_equal(
             toffoli_generated_cnot.matrix(),
             cnot(0, 1).matrix(),

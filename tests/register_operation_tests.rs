@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
-use quaru::operation::{self, toffoli, Operation};
+use quaru::operation::{self, cnx, Operation};
 use quaru::register::Register;
 use num::Complex;
 
@@ -171,7 +171,7 @@ proptest!(
         let mut reg = Register::new(&init_state);
         let init_target_value = init_state[n-1];
 
-        reg.apply(&toffoli(&(0..n-1).collect(), n-1));
+        reg.apply(&cnx(&(0..n-1).collect(), n-1));
 
         let control_measure = (0..n-1).all(|i| reg.measure(i));
         let res = if control_measure {

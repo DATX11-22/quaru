@@ -4,7 +4,7 @@ use num::traits::Pow;
 use quaru::{
     math::real_arr_to_complex,
     operation::{hadamard, Operation},
-    register::{Register},
+    register::Register,
 };
 use std::{
     f64::consts::PI,

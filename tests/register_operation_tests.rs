@@ -29,7 +29,7 @@ fn new_qubits_test() {
         ndarray::array![[Complex::new(1.0/(2.0_f64).sqrt(), 0.0)], [Complex::new(1.0/(2.0_f64).sqrt(), 0.0)]]
     ]);
     let mut reg = Register::new(&[false, true, false]);
-    reg.apply(&hadamard(2));
+    reg.apply(&operation::hadamard(2));
     assert_eq!(reg, reg_qubits); 
 }
 

@@ -71,7 +71,7 @@ impl Register {
             .map(Self::is_qubit);
         //check if everything was correct otherwise panic
         for (i, bool) in res.enumerate() {
-            if bool {
+            if !bool {
                 return Err(OperationError::InvalidQubit(i));
             }
         }

@@ -23,7 +23,7 @@ fn measure_on_zero_state_gives_false() {
 /// gate to qubit 2
 #[test]
 fn new_qubits_test() {
-    let mut reg_qubits = Register::new_qubits(&[
+    let reg_qubits = Register::new_qubits(&[
         ndarray::array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
         ndarray::array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
         ndarray::array![[Complex::new(1.0/(2.0_f64).sqrt(), 0.0)], [Complex::new(1.0/(2.0_f64).sqrt(), 0.0)]]

@@ -89,12 +89,11 @@ pub fn qft(n: usize) -> Operation {
         arity: (n as f64).log2() as usize,
     }
 }
-pub fn to_qunatum_gate(f: &dyn Fn(i32) -> i32, targets: Vec<usize>) -> Operation {
+pub fn to_quantum_gate(f: &dyn Fn(i32) -> i32, targets: Vec<usize>) -> Operation {
     let t_len = targets.len();
-    let len : usize = 2_i32.pow(t_len as u32) as usize;
+    let len: usize = 1 << t_len;
     let mut matrix: Array2<Complex<f64>> = Array2::zeros((len, len));
     for i in 0..len {
-        // let val = if i > 0 {f(i)} else {f(0)};
         let val = f(i as i32);
         let res_state = to_state(val as u32, len);
         for j in 0..len{

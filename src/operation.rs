@@ -1,7 +1,7 @@
 use ndarray::{array, Array2, linalg, Axis};
 
 use num::{complex::ComplexFloat, Complex};
-use std::{f64::consts, vec};
+use std::{f64::consts::{self, PI}, vec};
 
 // Naming?
 pub trait OperationTrait {
@@ -75,20 +75,43 @@ pub fn cnot(control: usize, target: usize) -> Operation {
         arity: 2,
     }
 }
+
 pub fn qft(n: usize) -> Operation {
-    let mut matrix = Array2::zeros((n, n));
-    let w = consts::E.powc(Complex::new(0.0, 2.0 * consts::PI / n as f64));
-    for i in 0..n as i32 {
-        for j in 0..n as i32 {
-            matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (n as f64).sqrt());
+    let m = 1<<n;
+    let mut matrix = Array2::zeros((m, m));
+    let w = consts::E.powc(Complex::new(0.0, 2.0 * consts::PI / m as f64));
+    for i in 0..m as i32 {
+        for j in 0..m as i32 {
+            matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (m as f64).sqrt());
         }
     }
     Operation {
         matrix: matrix,
         targets: (0..n).collect(),
-        arity: (n as f64).log2() as usize,
+        arity: n,
     }
 }
+
+pub fn add_A_matrix(a: usize, k: i32) -> Array2<Complex<f64>> {
+    array![
+        [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+        [Complex::new(0.0, 0.0), Complex::from_polar(1.0, PI/2_f64.powi(k) * a as f64)]
+    ]
+}
+
+pub fn add(a: usize, targets: Vec<usize>) -> Operation {
+    let n = targets.len();
+    let mut matrix = Array2::eye(1);
+    for i in 0..n {
+        matrix = linalg::kron(&matrix, &add_A_matrix(a, i as i32));
+    }
+    Operation {
+        matrix: matrix,
+        targets: targets,
+        arity: n,
+    }
+}
+
 pub fn to_quantum_gate(f: &dyn Fn(i32) -> i32, targets: Vec<usize>) -> Operation {
     let t_len = targets.len();
     let len: usize = 1 << t_len;
@@ -96,7 +119,7 @@ pub fn to_quantum_gate(f: &dyn Fn(i32) -> i32, targets: Vec<usize>) -> Operation
     for i in 0..len {
         let val = f(i as i32);
         let res_state = to_state(val as u32, len);
-        for j in 0..len{
+        for j in 0..len {
             let res_val = res_state[(j, 0)];
             matrix[(j, i)] = res_val;
         }
@@ -107,6 +130,7 @@ pub fn to_quantum_gate(f: &dyn Fn(i32) -> i32, targets: Vec<usize>) -> Operation
         arity: t_len,
     }
 }
+
 fn to_state(val : u32, len : usize) -> Array2<Complex<f64>> {
     let mut state : Array2<Complex<f64>> = Array2::zeros((len, 1));
     let i = (val % (len as u32)) as usize;
@@ -115,6 +139,7 @@ fn to_state(val : u32, len : usize) -> Array2<Complex<f64>> {
     // println!("from val {} \n{:}", val, state);
     state
 }
+
 pub fn to_controlled(op : Operation, control : usize) -> Operation{
     let extend = 2_i32.pow(op.arity as u32) as usize;
     let mut matrix = Array2::zeros((op.matrix().len_of(Axis(0)) + extend, op.matrix().len_of(Axis(1))+ extend));
@@ -197,7 +222,7 @@ mod tests {
     use ndarray::Array2;
     use num::Complex;
 
-    use super::{cnot, hadamard, identity, not, pauli_y, pauli_z, phase, swap};
+    use super::{cnot, hadamard, identity, not, pauli_y, pauli_z, phase, swap, qft, add};
 
     fn all_ops() -> Vec<Box<dyn OperationTrait>> {
         return vec![
@@ -209,6 +234,8 @@ mod tests {
             Box::new(not(0)),
             Box::new(pauli_y(0)),
             Box::new(pauli_z(0)),
+            Box::new(qft(5)),
+            Box::new(add(5, (0..6).collect()))
         ];
     }
 

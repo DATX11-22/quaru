@@ -1,11 +1,39 @@
 use std::env;
 
+use ndarray::Array2;
+use num::Complex;
 use colored::Colorize;
 use stopwatch::Stopwatch;
 use quant::{operation, register::Register};
 use rand::Rng;
+use log::debug;
 
-fn main() { 
+// Temporary, will be a test later.
+fn test_find_r() {
+    let N = 9;
+    for a in 2..N {
+        if gcd::euclid_u32(N, a) != 1 {
+            continue;
+        }
+        println!("a = {}", a);
+
+        let mut period = 1;
+        let mut a_pow = a;
+        while a_pow != 1 {
+            a_pow = a_pow*a%N;
+            period += 1;
+        }
+        println!("Period: {}", period);
+
+        for i in 0..25 {
+            print!("{} ", find_r(N, a, false));
+        }
+        println!()
+    }
+}
+
+fn main() {
+    env_logger::init();
     let args: Vec<String> = env::args().collect();
     let (N, n_times, debug) = parse_args(args);
 
@@ -59,23 +87,20 @@ fn shors(N: u32, debug : bool) -> u32 {
 
     let mut iter = 0;
     loop {
-        if debug {
-            println!("\n=== Attempt {} ===", iter+1);
+        if iter > 0 {
+            debug!("");
         }
+        debug!("=== Attempt {} ===", iter+1);
 
         // Pick a random number 1 < a < N
         let a: u32 = rand::thread_rng().gen_range(2..N);
 
-        if debug {
-            println!("Using a = {} as guess", a);
-        }
+        debug!("Using a = {} as guess", a);
 
         // We are done if a and N share a factor
         let k = gcd::euclid_u32(a, N);
         if k != 1 {
-            if debug {
-                println!("N and a share the factor {}, done", k)
-            }
+            debug!("N and a share the factor {}, done", k);
             return k;
         }
 
@@ -87,24 +112,20 @@ fn shors(N: u32, debug : bool) -> u32 {
             let k = modpow(a, r/2, N);
 
             if k != N-1 {
-                if debug {
-                    println!("Calculated a^(r/2) % N = {}", k);
-                }
+                debug!("Calculated a^(r/2) % N = {}", k);
 
                 let factor1 = gcd::euclid_u32(k - 1, N);
                 let factor2 = gcd::euclid_u32(k + 1, N);
-                if debug {
-                    println!("GCD({}-1, N) = {}", k, factor1);
-                    println!("GCD({}+1, N) = {}", k, factor2);
-                }
+                debug!("GCD({}-1, N) = {}", k, factor1);
+                debug!("GCD({}+1, N) = {}", k, factor2);
                 return factor1.max(factor2);
             }
-            else if debug{
-                println!("a^(r/2) = -1 (mod N), trying again");
+            else {
+                debug!("a^(r/2) = -1 (mod N), trying again");
             }
         }
-        else if debug {
-            println!("r odd, trying again.")
+        else {
+            debug!("r odd, trying again.")
         }
 
         iter += 1;
@@ -121,20 +142,14 @@ fn find_r(N: u32, a: u32, debug : bool) -> u32 {
 
     // Apply hadamard transform to the first 2n qubits
     let hadamard_transform = operation::hadamard_transform((0..2*n).collect());
-    if debug {
-        println!("Applying hadamard transform");
-    }
+    debug!("Applying hadamard transform");
     reg.apply(&hadamard_transform);
 
     // Apply not to the first of the last n qubits, in order to create a "1" in the last n qubits
-    if debug {
-        println!("Applying not");
-    }
+    debug!("Applying not");
     reg.apply(&operation::not(2*n));
 
-    if debug {
-        println!("Applying U gates");
-    }
+    debug!("Applying U gates");
     // Targets for the controlled u gates
     let targets: Vec<usize> = (2*n..3*n).collect();
     for i in 0..2*n{
@@ -144,10 +159,8 @@ fn find_r(N: u32, a: u32, debug : bool) -> u32 {
         // Find a^pow mod N
         let a_pow_mod: i32 = modpow(a, pow, N) as i32;
 
-        if debug {
-            println!("a = {}, pow = {}, mod = {}", a, pow, N);
-            println!("a_pow_mod = {}", a_pow_mod);
-        }
+        debug!("a = {}, pow = {}, mod = {}", a, pow, N);
+        debug!("a_pow_mod = {}", a_pow_mod);
 
         // Create the function for the controlled u gate
         let func = |x: i32| -> i32 {
@@ -156,42 +169,32 @@ fn find_r(N: u32, a: u32, debug : bool) -> u32 {
         // Create the controlled u gate
         let u_gate = operation::to_quantum_gate(&func, targets.clone());
         let c_u_gate = operation::to_controlled(u_gate, i);
-        if debug {
-            println!("Applying c_u_gate for i = {}", i);
-        }
+        debug!("Applying c_u_gate for i = {}", i);
         reg.apply(&c_u_gate);
     }
 
     // Apply the qft
-    let qft = operation::qft(2_i32.pow(2*n as u32) as usize); 
-    if debug {
-        println!("Applying qft");
-    }
+    let qft = operation::qft(2*n); 
+    debug!("Applying qft");
     reg.apply(&qft);
     
     // Measure the first 2n qubits
     let mut res = 0;
-    if debug {
-        println!("Measuring");
-    }
+    debug!("Measuring");
 
     for i in 0..2*n {
         let m = if reg.measure(i) {1} else {0};
         res |= m<<i;
     }
-    if debug {
-        println!("res = {}", res);
-    }
+    debug!("res = {}", res);
     
     // find r from the first 2n qubits
 
     let dem = 2_i32.pow(2*n as u32) as u32;
     let ret =  dem / gcd::euclid_u32(res, dem);
-    if debug {
-        println!("r = {}", ret);
-    }
-    ret
+    debug!("r = {}", ret);
 
+    ret
 }
 
 fn parse_args(args: Vec<String>) -> (u32, u32, bool) {

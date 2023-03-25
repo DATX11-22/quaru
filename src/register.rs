@@ -3,7 +3,7 @@ use crate::{
     operation::{self, Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
-use num::Complex;
+use num::{Complex, One};
 use rand::prelude::*;
 
 /// A quantum register containing N qubits.
@@ -41,6 +41,17 @@ impl Register {
             size: input_bits.len(),
         }
     }
+
+    pub fn from_int(n: usize, k: usize) -> Self {
+        let mut state_vector: Array2<Complex<f64>> = Array2::zeros((1<<n, 1));
+        state_vector[(k, 0)] = Complex::one();
+
+        Self {
+            state: state_vector,
+            size: n,
+        }
+    }
+
     /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state

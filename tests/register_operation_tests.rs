@@ -234,6 +234,18 @@ proptest!(
         assert_eq!(message, [register.measure(0), register.measure(1)]);
     }
 
+    #[test]
+    fn qft_add(n in 1..7 as usize, a in 0..1024 as usize, b in 0..1024 as usize){
+        let mut reg1 = Register::from_int(n, b%(1<<n));
+        reg1.apply(&operation::qft(n));
+        reg1.apply(&operation::add(a, (0..n).collect()));
+
+        let mut reg2 = Register::from_int(n, (a+b)%(1<<n));
+        reg2.apply(&operation::qft(n));
+
+        assert!(equal_qubits(reg1.state, reg2.state));
+    }
+
 );
 
 pub fn equal_qubits(a : Array2<Complex<f64>>, b : Array2<Complex<f64>>) -> bool {

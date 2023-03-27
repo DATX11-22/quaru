@@ -1,14 +1,15 @@
-use quaru::{register::Register, operation};
-
+use std::path::Path;
+use quaru::openqasm;
 
 fn main() {
-    let mut register = Register::new(&[false, false]);
+    let example_dir = Path::new(file!()).parent().unwrap();
+    let qasm_path = example_dir.join(Path::new("example.qasm"));
 
-    register.print_probabilities();
+    let registers = openqasm::run_openqasm(&qasm_path);
 
-    register.apply(&operation::hadamard(0));
-    register.apply(&operation::cnot(0, 1));
-
-    println!();
-    register.print_probabilities();
+    for (name, qreg) in registers.qregs {
+        println!("\nQuatnum register: {}", name);
+        qreg.print_probabilities();
+        println!();
+    }
 }

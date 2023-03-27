@@ -1,8 +1,10 @@
 use ndarray::{array, Array2};
-use num::Complex;
+use num::{Complex, complex::Complex64};
 use std::{f64::consts, vec};
 
 use crate::math::real_to_complex;
+
+type C = Complex64;
 
 // Naming?
 pub trait OperationTrait {
@@ -35,7 +37,7 @@ impl Operation {
         let shape = matrix.shape();
         let len = targets.len();
 
-        if shape[0] != 2_usize.pow(len as u32)|| shape[1] != 2_usize.pow(len as u32) {
+        if shape[0] != 2_usize.pow(len as u32) || shape[1] != 2_usize.pow(len as u32) {
             return None;
         }
 
@@ -169,6 +171,20 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     Operation {
         matrix: real_to_complex(matrix),
         targets,
+    }
+}
+
+pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
+    let theta = C::from(theta);
+    let phi = C::from(phi);
+    let lambda = C::from(lambda);
+    let i = C::i();
+    Operation {
+        matrix: array![
+            [(-i * (phi+lambda) / 2.0).exp() * (theta / 2.0).cos(), -(-i * (phi-lambda) / 2.0).exp() * (theta / 2.0).sin()],
+            [( i * (phi-lambda) / 2.0).exp() * (theta / 2.0).sin(),  ( i * (phi+lambda) / 2.0).exp() * (theta / 2.0).cos()],
+        ],
+        targets: vec![target],
     }
 }
 

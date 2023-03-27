@@ -65,7 +65,7 @@ enum UnaryOperation {
     Identity,
     Hadamard,
     Phase,
-    NOT,
+    Not,
     PauliY,
     PauliZ,
 }
@@ -77,7 +77,7 @@ impl UnaryOperation {
             UnaryOperation::Identity,
             UnaryOperation::Hadamard,
             UnaryOperation::Phase,
-            UnaryOperation::NOT,
+            UnaryOperation::Not,
             UnaryOperation::PauliY,
             UnaryOperation::PauliZ,
         ]
@@ -90,7 +90,7 @@ impl Display for UnaryOperation {
             UnaryOperation::Identity => write!(f, "Identity"),
             UnaryOperation::Hadamard => write!(f, "Hadamard"),
             UnaryOperation::Phase => write!(f, "Phase"),
-            UnaryOperation::NOT => write!(f, "NOT"),
+            UnaryOperation::Not => write!(f, "NOT"),
             UnaryOperation::PauliY => write!(f, "Pauli Y"),
             UnaryOperation::PauliZ => write!(f, "Pauli Z"),
         }
@@ -102,21 +102,21 @@ fn unary_operation_target_name(_: &UnaryOperation) -> [&str; 1] {
 }
 
 enum BinaryOperation {
-    CNOT,
+    CNot,
     Swap,
 }
 
 impl BinaryOperation {
     /// Returns a vector of every possible binary operation.
     fn operations() -> Vec<BinaryOperation> {
-        vec![BinaryOperation::CNOT, BinaryOperation::Swap]
+        vec![BinaryOperation::CNot, BinaryOperation::Swap]
     }
 }
 
 impl Display for BinaryOperation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BinaryOperation::CNOT => write!(f, "CNOT"),
+            BinaryOperation::CNot => write!(f, "CNOT"),
             BinaryOperation::Swap => write!(f, "Swap"),
         }
     }
@@ -124,8 +124,8 @@ impl Display for BinaryOperation {
 
 fn binary_operation_target_names(op: &BinaryOperation) -> [&str; 2] {
     match *op {
-        BinaryOperation::CNOT => ["control", "target"],
-        _ =>                     ["target"; 2]
+        BinaryOperation::CNot => ["control", "target"],
+        _ => ["target"; 2],
     }
 }
 
@@ -171,7 +171,7 @@ fn operation_prompt(size: usize) -> Result<OperationType, InquireError> {
 /// - Identity
 /// - Hadamard
 /// - Phase
-/// - NOT
+/// - Not
 /// - Pauli Y
 /// - Pauli Z
 fn unary_prompt() -> Result<UnaryOperation, InquireError> {
@@ -183,20 +183,23 @@ fn unary_prompt() -> Result<UnaryOperation, InquireError> {
 /// enum.
 ///
 /// Operations include:
-/// - CNOT
+/// - CNot
 /// - Swap
 fn binary_prompt() -> Result<BinaryOperation, InquireError> {
     let options = BinaryOperation::operations();
     Select::new("Select an operation: ", options).prompt()
 }
 
-/// Given an array of target names and a size, prompts the user for `N` selections of indeces 
+/// Given an array of target names and a size, prompts the user for `N` selections of indeces
 /// from 0 to `size` - 1 and returns the result containing a vector of the selected indeces.
 ///
 /// # Panics
 ///
 /// Panics if `N` is greater than `size`.
-fn qubit_prompt<const N: usize>(target_names: [&str; N], size: usize) -> Result<Vec<usize>, InquireError> {
+fn qubit_prompt<const N: usize>(
+    target_names: [&str; N],
+    size: usize,
+) -> Result<Vec<usize>, InquireError> {
     assert!(
         N <= size,
         "Cannot call operation on more qubits than register size! ({N} > {size}"
@@ -205,9 +208,9 @@ fn qubit_prompt<const N: usize>(target_names: [&str; N], size: usize) -> Result<
     let options: Vec<usize> = (0..size).collect();
     let mut targets: Vec<usize> = Vec::new();
 
-    for i in 0..N {
+    for name in target_names.iter().take(N) {
         let target = Select::new(
-            format!("Select a {} index: ", target_names[i]).as_str(),
+            format!("Select a {name} index: ").as_str(),
             options
                 .clone()
                 .into_iter()
@@ -231,9 +234,7 @@ fn qubit_prompt<const N: usize>(target_names: [&str; N], size: usize) -> Result<
 fn get_unary(size: usize) -> Result<Operation, InquireError> {
     let unary_op = match unary_prompt() {
         Ok(op) => op,
-        Err(e) => panic!(
-            "Problem encountered when selecting unary operation: {e:?}"
-        ),
+        Err(e) => panic!("Problem encountered when selecting unary operation: {e:?}"),
     };
 
     let target = match qubit_prompt(unary_operation_target_name(&unary_op), size) {
@@ -245,7 +246,7 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
         UnaryOperation::Identity => operation::identity(target),
         UnaryOperation::Hadamard => operation::hadamard(target),
         UnaryOperation::Phase => operation::phase(target),
-        UnaryOperation::NOT => operation::not(target),
+        UnaryOperation::Not => operation::not(target),
         UnaryOperation::PauliY => operation::pauli_y(target),
         UnaryOperation::PauliZ => operation::pauli_z(target),
     };
@@ -263,9 +264,7 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let binary_op = match binary_prompt() {
         Ok(op) => op,
-        Err(e) => panic!(
-            "Problem encountered when selecting binary operation: {e:?}"
-        ),
+        Err(e) => panic!("Problem encountered when selecting binary operation: {e:?}"),
     };
 
     let targets = match qubit_prompt(binary_operation_target_names(&binary_op), size) {
@@ -277,7 +276,7 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let b = targets[1];
 
     let op = match binary_op {
-        BinaryOperation::CNOT => operation::cnot(a, b),
+        BinaryOperation::CNot => operation::cnot(a, b),
         BinaryOperation::Swap => operation::swap(a, b),
     };
 
@@ -292,9 +291,7 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
 fn handle_apply(reg: &mut Register) {
     let op_type = match operation_prompt(reg.size()) {
         Ok(op_type) => op_type,
-        Err(e) => panic!(
-            "Problem encountered during operation type selection: {e:?}"
-        ),
+        Err(e) => panic!("Problem encountered during operation type selection: {e:?}"),
     };
 
     let result = match op_type {

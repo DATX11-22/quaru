@@ -125,7 +125,7 @@ impl Display for BinaryOperation {
 fn binary_operation_target_names(op: &BinaryOperation) -> [&str; 2] {
     match *op {
         BinaryOperation::CNOT => ["control", "target"],
-        _ =>                     ["target",  "target"]
+        _ =>                     ["target"; 2]
     }
 }
 
@@ -190,13 +190,12 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
     Select::new("Select an operation: ", options).prompt()
 }
 
-/// Given a number of operands `n` and a register size `size`, prompts the user for `n` selections
-/// of indeces from 0 to `size` - 1 and returns the result containing a vector of the selected
-/// indeces.
+/// Given an array of target names and a size, prompts the user for `N` selections of indeces 
+/// from 0 to `size` - 1 and returns the result containing a vector of the selected indeces.
 ///
 /// # Panics
 ///
-/// Panics if `n` is greater than `size`.
+/// Panics if `N` is greater than `size`.
 fn qubit_prompt<const N: usize>(target_names: [&str; N], size: usize) -> Result<Vec<usize>, InquireError> {
     assert!(
         N <= size,

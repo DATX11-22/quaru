@@ -1,12 +1,11 @@
 use ndarray::{array, Array2};
-use num::Complex;
 use std::{f64::consts, vec};
 
-use crate::math::real_to_complex;
+use crate::math::{real_arr_to_complex, c64, new_complex};
 
 // Naming?
 pub trait OperationTrait {
-    fn matrix(&self) -> Array2<Complex<f64>>;
+    fn matrix(&self) -> Array2<c64>;
     fn targets(&self) -> Vec<usize>;
     fn arity(&self) -> usize;
 }
@@ -21,7 +20,7 @@ pub trait OperationTrait {
 /// with length equal to the number of operands.
 #[derive(Clone, Debug)]
 pub struct Operation {
-    matrix: Array2<Complex<f64>>,
+    matrix: Array2<c64>,
     targets: Vec<usize>,
 }
 
@@ -31,7 +30,7 @@ impl Operation {
     /// Returns an operation if `matrix` is square with sides equal to number of `targets`.
     ///
     /// Otherwise, returns `None`.
-    pub fn new(matrix: Array2<Complex<f64>>, targets: Vec<usize>) -> Option<Operation> {
+    pub fn new(matrix: Array2<c64>, targets: Vec<usize>) -> Option<Operation> {
         let shape = matrix.shape();
         let len = targets.len();
 
@@ -45,7 +44,7 @@ impl Operation {
 
 // TODO: Check if we can return references instead?
 impl OperationTrait for Operation {
-    fn matrix(&self) -> Array2<Complex<f64>> {
+    fn matrix(&self) -> Array2<c64> {
         self.matrix.clone()
     }
 
@@ -60,21 +59,21 @@ impl OperationTrait for Operation {
 
 pub fn identity(target: usize) -> Operation {
     Operation {
-        matrix: real_to_complex(array![[1.0, 0.0], [0.0, 1.0]]),
+        matrix: real_arr_to_complex(array![[1.0, 0.0], [0.0, 1.0]]),
         targets: vec![target],
     }
 }
 
 pub fn hadamard(target: usize) -> Operation {
     Operation {
-        matrix: real_to_complex(consts::FRAC_1_SQRT_2 * array![[1.0, 1.0], [1.0, -1.0]]),
+        matrix: real_arr_to_complex(consts::FRAC_1_SQRT_2 * array![[1.0, 1.0], [1.0, -1.0]]),
         targets: vec![target],
     }
 }
 
 pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
-        matrix: real_to_complex(array![
+        matrix: real_arr_to_complex(array![
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0],
@@ -86,7 +85,7 @@ pub fn cnot(control: usize, target: usize) -> Operation {
 
 pub fn swap(target1: usize, target2: usize) -> Operation {
     Operation {
-        matrix: real_to_complex(array![
+        matrix: real_arr_to_complex(array![
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 1.0, 0.0],
             [0.0, 1.0, 0.0, 0.0],
@@ -99,8 +98,8 @@ pub fn swap(target1: usize, target2: usize) -> Operation {
 pub fn phase(target: usize) -> Operation {
     Operation {
         matrix: array![
-            [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
-            [Complex::new(0.0, 0.0), Complex::new(0.0, 1.0)]
+            [new_complex(1.0, 0.0), new_complex(0.0, 0.0)],
+            [new_complex(0.0, 0.0), new_complex(0.0, 1.0)]
         ],
         targets: vec![target],
     }
@@ -108,7 +107,7 @@ pub fn phase(target: usize) -> Operation {
 
 pub fn not(target: usize) -> Operation {
     Operation {
-        matrix: real_to_complex(array![[0.0, 1.0], [1.0, 0.0]]),
+        matrix: real_arr_to_complex(array![[0.0, 1.0], [1.0, 0.0]]),
         targets: vec![target],
     }
 }
@@ -116,8 +115,8 @@ pub fn not(target: usize) -> Operation {
 pub fn pauli_y(target: usize) -> Operation {
     Operation {
         matrix: array![
-            [Complex::new(0.0, 0.0), Complex::new(0.0, -1.0)],
-            [Complex::new(0.0, 1.0), Complex::new(0.0, 0.0)]
+            [new_complex(0.0, 0.0), new_complex(0.0, -1.0)],
+            [new_complex(0.0, 1.0), new_complex(0.0, 0.0)]
         ],
         targets: vec![target],
     }
@@ -125,7 +124,7 @@ pub fn pauli_y(target: usize) -> Operation {
 
 pub fn pauli_z(target: usize) -> Operation {
     Operation {
-        matrix: real_to_complex(array![[1.0, 0.0], [0.0, -1.0]]),
+        matrix: real_arr_to_complex(array![[1.0, 0.0], [0.0, -1.0]]),
         targets: vec![target],
     }
 }
@@ -149,7 +148,7 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
     matrix.row_mut(n - 2)[n - 1] = 1.0;
 
     Operation {
-        matrix: real_to_complex(matrix),
+        matrix: real_arr_to_complex(matrix),
         targets,
     }
 }
@@ -167,7 +166,7 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     matrix.row_mut(n - 1)[n - 1] = -1.0;
 
     Operation {
-        matrix: real_to_complex(matrix),
+        matrix: real_arr_to_complex(matrix),
         targets,
     }
 }
@@ -176,7 +175,7 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
 mod tests {
     use super::{toffoli, OperationTrait};
     use ndarray::Array2;
-    use num::Complex;
+    use crate::math::c64;
 
     use super::{cnot, hadamard, identity, not, pauli_y, pauli_z, phase, swap};
 
@@ -229,7 +228,7 @@ mod tests {
         ));
     }
 
-    fn matrix_is_equal(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>, tolerance: f64) -> bool {
+    fn matrix_is_equal(a: Array2<c64>, b: Array2<c64>, tolerance: f64) -> bool {
         (a - b).iter().all(|e| e.norm() < tolerance)
     }
 }

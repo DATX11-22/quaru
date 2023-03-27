@@ -3,7 +3,6 @@ use crate::{
     operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
-use num::Complex;
 use rand::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -27,7 +26,7 @@ pub struct Register {
     ///
     /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
-    pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
+    pub state: Array2<math::c64>, // Should not be pub (it is pub now for testing purpouses)
     size: usize,
 }
 
@@ -35,7 +34,7 @@ impl Register {
     /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
-        let base_state = array![[Complex::new(1.0, 0.0)]];
+        let base_state = array![[math::new_complex(1.0, 0.0)]];
 
         // Creates state by translating bool to qubit
         // then uses qubits in tesnor product to create state
@@ -140,7 +139,7 @@ impl Register {
             return Err(OperationError::InvalidArity(operation.arity()));
         }
 
-        let matrix = (0..self.size).fold(array![[Complex::new(1.0, 0.0)]], |acc, _| {
+        let matrix = (0..self.size).fold(array![[math::new_complex(1.0, 0.0)]], |acc, _| {
             linalg::kron(&acc, &operation.matrix())
         });
 
@@ -195,7 +194,7 @@ impl Register {
             if ((i >> target) & 1) != res as usize {
                 // In state i the target bit != the result of measuring that bit.
                 // The probability of reaching this state is therefore 0.
-                *s = Complex::new(0.0, 0.0);
+                *s = math::new_complex(0.0, 0.0);
             } else {
                 // Because we have set some probabilities to 0 the state vector no longer
                 // upholds the criteria that the probabilities sum to 1. So we have to normalize it.

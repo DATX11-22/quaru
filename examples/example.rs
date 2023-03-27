@@ -5,7 +5,7 @@ fn main() {
     let example_dir = Path::new(file!()).parent().unwrap();
     let qasm_path = example_dir.join(Path::new("example.qasm"));
 
-    let registers = openqasm::run_openqasm(&qasm_path);
+    let registers = openqasm::run_openqasm(&qasm_path).ok().unwrap();
 
     for (name, qreg) in registers.qregs {
         println!("\nQuatnum register: {}", name);

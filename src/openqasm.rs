@@ -40,6 +40,7 @@ pub enum OpenQASMError {
 /// # Examples
 /// ```
 /// use quaru::openqasm;
+/// use std::path::Path;
 /// let registers = openqasm::run_openqasm(Path::new("filepath.qasm"));
 /// ```
 pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {

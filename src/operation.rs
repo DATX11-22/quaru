@@ -1,5 +1,5 @@
 use ndarray::{array, Array2};
-use num::{Complex, complex::Complex64};
+use num::complex::Complex64;
 use std::{f64::consts, vec};
 use crate::math::{real_arr_to_complex, c64, new_complex};
 

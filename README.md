@@ -1,4 +1,6 @@
 # Quaru
+![quaru](https://user-images.githubusercontent.com/73998667/228238469-7358813a-5f59-4602-9538-612e678df90e.png)
+
 ![example workflow](https://github.com/DATX11-22/Quaru/actions/workflows/rust.yml/badge.svg)
 
 Repository for group 22 quantum computer simulator bachelor's thesis.

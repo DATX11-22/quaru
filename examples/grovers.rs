@@ -3,7 +3,7 @@ use ndarray::Array2;
 use num::traits::Pow;
 use quaru::{
     operation::{cz, hadamard, not, Operation},
-    register::Register, math::real_to_complex
+    register::Register, math::real_arr_to_complex
 };
 use std::{
     f64::consts::PI,
@@ -120,7 +120,7 @@ pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
         matrix.row_mut(i)[i] = if i == winner { -1.0 } else { 1.0 };
     }
 
-    let op = Operation::new(real_to_complex(matrix), (0..regsize).collect()).expect("Could not create oracle operation");
+    let op = Operation::new(real_arr_to_complex(matrix), (0..regsize).collect()).expect("Could not create oracle operation");
     op
 }
 

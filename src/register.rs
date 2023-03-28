@@ -3,6 +3,7 @@ use crate::{
     operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
+use num::Complex;
 use rand::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -63,6 +64,9 @@ impl Register {
         Self::try_new_qubits(input_bits).expect("Incorrect input qubits")
     }
 
+    /// Tries to create a new state from list of qubits
+    /// Returns a Result which is either a register or an 
+    /// error if input was not correct qubits
     pub fn try_new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Result<Self, OperationError> {
         //check if input is correct
         let res = input_bits
@@ -89,6 +93,8 @@ impl Register {
     }
 
     /// Checks if input qubit has total probability 1
+    /// Outputs true if total probability is one and 
+    /// false if total probability is not one
     pub fn is_one(qubit: &Array2<Complex<f64>>) -> bool {
         let mut total_prob = -1.0;
         //Create total prob by squaring individual values
@@ -103,6 +109,8 @@ impl Register {
     }
 
     /// Checks that input qubit is correct
+    /// Outputs false if the length of input is not 2
+    /// otherwise outputs return value of is_one
     pub fn is_qubit(qubit: &Array2<Complex<f64>>) -> bool {
         if qubit.len() == 2 { return Self::is_one(qubit); }
         return false;

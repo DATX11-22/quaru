@@ -3,7 +3,7 @@ use quaru::openqasm;
 
 fn main() {
     let example_dir = Path::new(file!()).parent().unwrap();
-    let qasm_path = example_dir.join(Path::new("example.qasm"));
+    let qasm_path = example_dir.join(Path::new("openqasm_example.qasm"));
 
     let registers = openqasm::run_openqasm(&qasm_path).ok().unwrap();
 

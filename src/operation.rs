@@ -1,5 +1,4 @@
 use ndarray::{array, Array2};
-use num::complex::Complex64;
 use std::{f64::consts, vec};
 use crate::math::{real_arr_to_complex, c64, new_complex};
 
@@ -172,10 +171,10 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
 }
 
 pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
-    let theta = Complex64::from(theta);
-    let phi = Complex64::from(phi);
-    let lambda = Complex64::from(lambda);
-    let i = Complex64::i();
+    let theta = c64::from(theta);
+    let phi = c64::from(phi);
+    let lambda = c64::from(lambda);
+    let i = c64::i();
     Operation {
         matrix: array![
             [(-i * (phi+lambda) / 2.0).exp() * (theta / 2.0).cos(), -(-i * (phi-lambda) / 2.0).exp() * (theta / 2.0).sin()],

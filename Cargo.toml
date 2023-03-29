@@ -11,7 +11,7 @@ num = "0.4.0"
 rand = "0.8.5"
 inquire = "0.5.3"
 clap = { version = "4.1.6", features = ["derive"] }
-openqasm-parser = "0.1.1"
+openqasm-parser = "1.0.0"
 
 [dev-dependencies]
 proptest = "1.1.0"

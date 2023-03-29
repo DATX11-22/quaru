@@ -3,6 +3,7 @@ use crate::{
     operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
+use num::Complex;
 use rand::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -11,6 +12,7 @@ pub enum OperationError {
     InvalidDimensions(usize, usize),
     InvalidArity(usize),
     NoTargets,
+    InvalidQubit(usize),
 }
 
 /// A quantum register containing N qubits.
@@ -47,6 +49,71 @@ impl Register {
             state: state_matrix,
             size: input_bits.len(),
         }
+    }
+
+    /// Creates a new state with a list of 2 dimensional arrays
+    /// of complex numbers. 
+    /// 
+    /// Input qubits as [array![[Complex::new(1.0, 0.0)], array![Complex::new(0.0, 0.0)]]]
+    /// Two qubits looks like this: [array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]], 
+    ///                              array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]]]
+    /// 
+    /// **Panics** if 2 dimensional array doesn't contain 2 elements
+    /// or if their probability doesn't add to 1
+    pub fn new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Self {
+        Self::try_new_qubits(input_bits).expect("Incorrect input qubits")
+    }
+
+    /// Tries to create a new state from list of qubits
+    /// Returns a Result which is either a register or an 
+    /// error if input was not correct qubits
+    pub fn try_new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Result<Self, OperationError> {
+        //check if input is correct
+        let res = input_bits
+            .iter()
+            .map(Self::is_qubit);
+        //check if everything was correct otherwise panic
+        for (i, bool) in res.enumerate() {
+            if !bool {
+                return Err(OperationError::InvalidQubit(i));
+            }
+        }
+
+        let base_state = array![[Complex::new(1.0, 0.0)]];
+        
+        //create state
+        let state_matrix = input_bits
+            .iter()
+            .fold(base_state, |a, b| linalg::kron(&b, &a));
+
+        return Ok(Self {
+            state: state_matrix,
+            size: input_bits.len(),
+        });
+    }
+
+    /// Checks if input qubit has total probability 1
+    /// Outputs true if total probability is one and 
+    /// false if total probability is not one
+    pub fn is_one(qubit: &Array2<Complex<f64>>) -> bool {
+        let mut total_prob = -1.0;
+        //Create total prob by squaring individual values
+        for values in qubit {
+            total_prob += values.norm_sqr();
+        }
+        //Chech if total prob is 1
+        if total_prob.abs() < 0.000001 {
+            return true;
+        }
+        return false;
+    }
+
+    /// Checks that input qubit is correct
+    /// Outputs false if the length of input is not 2
+    /// otherwise outputs return value of is_one
+    pub fn is_qubit(qubit: &Array2<Complex<f64>>) -> bool {
+        if qubit.len() == 2 { return Self::is_one(qubit); }
+        return false;
     }
 
     /// Applys a quantum operation to the current state
@@ -230,6 +297,7 @@ impl Register {
     pub fn size(&self) -> usize {
         self.size
     }
+    
 }
 
 impl PartialEq for Register {

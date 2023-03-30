@@ -6,6 +6,7 @@ use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quaru::operation::{self, toffoli, Operation};
 use quaru::register::Register;
+use num::Complex;
 
 #[test]
 // #[ignore = "Wait for feature confirmation"]
@@ -15,6 +16,21 @@ fn measure_on_zero_state_gives_false() {
     let expected = false;
 
     assert_eq!(input, expected);
+}
+
+/// Tests that creating a state |0>, |1>, 1/sqrt(2)|0> + 1/sqrt(2)|1>
+/// is equal to creating a state |0>, |1>, |0> and applying a hadamard
+/// gate to qubit 2
+#[test]
+fn new_qubits_test() {
+    let reg_qubits = Register::new_qubits(&[
+        ndarray::array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
+        ndarray::array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
+        ndarray::array![[Complex::new(1.0/(2.0_f64).sqrt(), 0.0)], [Complex::new(1.0/(2.0_f64).sqrt(), 0.0)]]
+    ]);
+    let mut reg = Register::new(&[false, true, false]);
+    reg.apply(&operation::hadamard(2));
+    assert_eq!(reg, reg_qubits); 
 }
 
 proptest!(

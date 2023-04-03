@@ -2,13 +2,14 @@ use clap::{arg, Parser};
 use ndarray::Array2;
 use num::traits::Pow;
 use quaru::{
-    operation::{cz, hadamard, not, Operation},
-    register::Register, math::real_arr_to_complex
+    math::real_arr_to_complex,
+    operation::{hadamard, Operation},
+    register::{Register},
 };
 use std::{
     f64::consts::PI,
     fmt::Display,
-    time::{Duration, Instant}
+    time::{Duration, Instant},
 };
 
 #[derive(Parser, Debug)]
@@ -23,23 +24,14 @@ fn main() {
     let args = Args::parse();
 
     let target = args.target;
-    let regsize = ((target+1) as f64).log2().ceil() as usize;
+    let regsize = ((target + 1) as f64).log2().ceil() as usize;
+    let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
     println!("Regsize: {regsize}");
 
     let result = grovers_algorithm(target, regsize);
 
     println!("{result}");
 }
-
-/// Grover's Algorithm
-/// This algorhitm can perform a search in an unstructured list with a
-/// complexity of O(sqrt(N)) utilizing quantum superposition.
-/// The algorithm consists of several parts.
-/// Initially, all of the states are put in superposition.
-/// Oracle functions are then used to amplify the probability of the
-/// "correct" state while reducing the others.
-/// This should be repeated O(sqrt(N)) times, before collapsing the
-/// state hopefully resulting in the target state.
 
 struct GroversResult {
     target: usize,
@@ -66,6 +58,13 @@ Time elapsed: {} ms",
     }
 }
 
+/// Grover's Algorithm
+/// This algorhitm can perform a search in an unstructured list with a
+/// complexity of O(sqrt(N)) utilizing quantum superposition.
+/// The algorithm consists of several parts.
+/// Initially, all of the states are put in superposition.
+/// An amplitude amplification process then amplifies the probability of the
+/// "correct" state while reducing the others in iterations.
 fn grovers_algorithm(winner: usize, regsize: usize) -> GroversResult {
     let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
 
@@ -79,7 +78,7 @@ fn grovers_algorithm(winner: usize, regsize: usize) -> GroversResult {
     let oracle = oracle_operation(reg.size(), winner);
 
     // Calculate numbers of repetitions needed
-    let n: usize = iterations(reg.size());
+    let n: usize = iterations_ms(reg.size());
     for _ in 0..n {
         // U_f (oracle function) reflects the "winner" state
         reg.apply(&oracle);
@@ -107,12 +106,13 @@ fn grovers_algorithm(winner: usize, regsize: usize) -> GroversResult {
 // other states.
 fn diffuser(reg: &mut Register) {
     reg.apply_all(&hadamard(0));
-    reg.apply_all(&not(0));
-    reg.apply(&cz(&(0..reg.size() - 1).collect(), reg.size() - 1));
-    reg.apply_all(&not(0));
+    reg.apply(&diffusion_operation(reg.size()));
     reg.apply_all(&hadamard(0));
 }
 
+/// The oracle function U_f reflects the "winner" state
+///
+/// ***Panics*** if the Operation fails to be created
 pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
     let n: usize = 2_usize.pow(regsize as u32);
     let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
@@ -120,20 +120,87 @@ pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
         matrix.row_mut(i)[i] = if i == winner { -1.0 } else { 1.0 };
     }
 
-    let op = Operation::new(real_arr_to_complex(matrix), (0..regsize).collect()).expect("Could not create oracle operation");
+    let op = Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
+        .expect("Could not create oracle operation");
     op
 }
 
-// Calculates the optimal number of iterations needed for U_sU_f
-// to get good amplitudes for the target states.
-fn iterations(search_space: usize) -> usize {
-    (PI / 4.0 * 2.0_f64.pow(search_space as f64).sqrt() / 1.0).floor() as usize
+/// Creates the diffuser operation U_s used in the diffuser function
+///
+/// ***Panics*** if the Operation fails to be created
+pub fn diffusion_operation(regsize: usize) -> Operation {
+    let n: usize = 2_usize.pow(regsize as u32);
+    let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
+    matrix.row_mut(0)[0] = 1.0;
+    for i in 1..n {
+        matrix.row_mut(i)[i] = -1.0;
+    }
+
+    let op = Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
+        .expect("Could not create diffuser operation");
+    op
 }
 
+/// Calculates the optimal number of iterations needed for U_sU_f
+/// to get good amplitudes for the target states.
+/// Floors the result.
+fn iterations_floor(regsize: usize) -> usize {
+    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt()).floor() as usize
+}
+
+/// Calculates the optimal number of iterations needed for U_sU_f
+/// to get good amplitudes for the target states.
+/// Ceils the result.
+fn iterations_ceil(regsize: usize) -> usize {
+    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt()).ceil() as usize
+}
+
+/// Calculates the optimal number of iterations needed for U_sU_f
+/// to get good amplitudes for the target states.
+/// Uses Microsofts formula.
+/// https://learn.microsoft.com/en-us/azure/quantum/concepts-grovers
+fn iterations_ms(regsize: usize) -> usize {
+    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt() - 0.5 as f64).floor() as usize
+}
+
+/// Calculates the optimal number of iterations needed for U_sU_f
+/// to get good amplitudes for the target states.
+/// Uses Nielsen and Chuangs exact formula.
+fn iterations_exact(regsize: usize) -> usize {
+    let theta = theta(regsize);
+    let n = 2.0_f64.pow(regsize as f64);
+    f64::acos((1.0 / n).sqrt()/theta).round() as usize
+}
+
+/// Calculates the angle theta that represents half a rotation
+/// of the state towards the target
+fn theta(regsize: usize) -> f64 {
+    let n = 2.0_f64.pow(regsize as f64);
+    f64::acos((n - 1.0) / n).sqrt()
+}
+
+/// Converts a boolean array to a decimal number
 fn to_decimal(arr: &[bool]) -> usize {
     let mut dec = 0;
     for (i, n) in arr.iter().rev().enumerate() {
         dec += if *n { 2_usize.pow(i as u32) } else { 0 };
     }
     dec
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{grovers_algorithm, to_decimal};
+
+    /// Tests that the algorithm works for targets 0-20
+    #[test]
+    fn test_grovers_algorithm() {
+        for target in 0..20 {
+            let regsize = ((target + 1) as f64).log2().ceil() as usize;
+            // Minimum regisze is 2
+            let regsize = if regsize < 2 { 2 } else { regsize };
+            let result = grovers_algorithm(target, regsize);
+            assert_eq!(to_decimal(&result.result), target);
+        }
+    }
 }

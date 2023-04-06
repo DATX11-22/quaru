@@ -1,12 +1,12 @@
 extern crate proptest;
 use std::ops::Range;
 
+use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
+use num::Complex;
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quant::operation::{self, Operation};
 use quant::register::Register;
-use num::Complex;
-use ndarray::{array, Array2, ArrayBase, OwnedRepr, Dim, linalg};
 use std::{f64::consts, vec};
 
 #[test]
@@ -160,12 +160,12 @@ proptest!(
 
         let expected = q0.0.clone();
         let mut reg = Register::new(&[false, false, true]);
-        let base_state = array![[Complex::new(1.0, 0.0)]]; 
+        let base_state = array![[Complex::new(1.0, 0.0)]];
         let new_state = [expected.clone(), to_qbit_vector(&false) , to_qbit_vector(&false)]
                     .iter()
                     .fold(base_state, |a, b| linalg::kron(&b, &a));
         reg.state = new_state.clone();
-        
+
         reg.apply(&operation::hadamard(2));
         reg.apply(&operation::cnot(2, 1));
         reg.apply(&operation::cnot(0, 1));
@@ -174,7 +174,7 @@ proptest!(
         let c_1 = reg.measure(1);
         if c_1 {
             reg.apply(&operation::not(2));
-        } 
+        }
         let c_0 = reg.measure(0);
         if c_0 {
             reg.apply(&operation::pauli_z(2));
@@ -233,22 +233,9 @@ proptest!(
         println!("Result: {}{}", register.measure(1) as i32, register.measure(0) as i32);
         assert_eq!(message, [register.measure(0), register.measure(1)]);
     }
-
-    #[test]
-    fn qft_add(n in 1..7 as usize, a in 0..1024 as usize, b in 0..1024 as usize){
-        let mut reg1 = Register::from_int(n, b%(1<<n));
-        reg1.apply(&operation::qft(n));
-        reg1.apply(&operation::add(a, (0..n).collect()));
-
-        let mut reg2 = Register::from_int(n, (a+b)%(1<<n));
-        reg2.apply(&operation::qft(n));
-
-        assert!(equal_qubits(reg1.state, reg2.state));
-    }
-
 );
 
-pub fn equal_qubits(a : Array2<Complex<f64>>, b : Array2<Complex<f64>>) -> bool {
+pub fn equal_qubits(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>) -> bool {
     let mut equal = true;
     for (i, s) in a.iter().enumerate() {
         // denna kan vara lite för hård, -a = a eftersom de har samma sannolikhet
@@ -264,14 +251,16 @@ pub fn to_qbit_vector(bit: &bool) -> Array2<Complex<f64>> {
         false => array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
     }
 }
-pub fn get_state_of_qubit(state : ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>, n : usize)  -> Array2<Complex<f64>> {
-    let mut beta : Complex<f64> = Complex::new(0.0, 0.0);
-    let mut alpha : Complex<f64> = Complex::new(0.0, 0.0);
+pub fn get_state_of_qubit(
+    state: ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>,
+    n: usize,
+) -> Array2<Complex<f64>> {
+    let mut beta: Complex<f64> = Complex::new(0.0, 0.0);
+    let mut alpha: Complex<f64> = Complex::new(0.0, 0.0);
     for (i, s) in state.iter().enumerate() {
         if (i >> n) & 1 == 1 {
             beta += s;
-        }
-        else  {
+        } else {
             alpha += s;
         }
     }
@@ -289,14 +278,19 @@ impl Arbitrary for Qubit {
     type Strategy = Select<Qubit>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let frac = consts::FRAC_1_SQRT_2;
-        select(vec!(
-           Qubit(array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]]),
-           Qubit(array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]]),
-           Qubit(array![[Complex::new(frac, 0.0)], [Complex::new(frac, 0.0)]]),
-           Qubit(array![[Complex::new(frac, 0.0)], [Complex::new(-frac, 0.0)]]),
-           Qubit(array![[Complex::new(frac, 0.0)], [Complex::new(0.0, -frac)]]),
-        ))
-       
+        select(vec![
+            Qubit(array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]]),
+            Qubit(array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]]),
+            Qubit(array![[Complex::new(frac, 0.0)], [Complex::new(frac, 0.0)]]),
+            Qubit(array![
+                [Complex::new(frac, 0.0)],
+                [Complex::new(-frac, 0.0)]
+            ]),
+            Qubit(array![
+                [Complex::new(frac, 0.0)],
+                [Complex::new(0.0, -frac)]
+            ]),
+        ])
     }
 }
 fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {

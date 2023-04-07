@@ -2,7 +2,7 @@ use ndarray::{array, linalg, Array2, Axis};
 
 use num::{complex::ComplexFloat, Complex};
 use std::{
-    f64::consts::{self, PI},
+    f64::consts::{self},
     vec,
 };
 

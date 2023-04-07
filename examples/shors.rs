@@ -3,24 +3,23 @@ use std::env;
 use colored::Colorize;
 use log::debug;
 use num::traits::Pow;
-use num::Complex;
 use quant::{operation, register::Register};
 use rand::Rng;
 use stopwatch::Stopwatch;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let (N, n_times) = parse_args(args);
+    let (number, n_times) = parse_args(args);
 
     let mut times = Vec::<i64>::new();
     for _ in 0..n_times {
         let sw = Stopwatch::start_new();
-        println!("Running for N = {}", N);
-        let d1 = shors(N);
-        let d2 = N / d1;
+        println!("Running for N = {}", number);
+        let d1 = shors(number);
+        let d2 = number / d1;
         println!(
             "The factors of {} are {} and {}",
-            N.to_string().green(),
+            number.to_string().green(),
             d1.to_string().blue(),
             d2.to_string().yellow()
         );
@@ -69,8 +68,8 @@ fn u_gate(targets: Vec<usize>, modulus: u32, a: u32, i: usize) -> operation::Ope
     u_gate
 }
 
-fn shors(N: u32) -> u32 {
-    if N % 2 == 0 {
+fn shors(number: u32) -> u32 {
+    if number % 2 == 0 {
         return 2;
     }
 
@@ -81,30 +80,30 @@ fn shors(N: u32) -> u32 {
         }
         debug!("=== Attempt {} ===", iter + 1);
 
-        // Pick a random number 1 < a < N
-        let a: u32 = rand::thread_rng().gen_range(2..N);
+        // Pick a random number 1 < a < number
+        let a: u32 = rand::thread_rng().gen_range(2..number);
 
         debug!("Using a = {} as guess", a);
 
         // We are done if a and N share a factor
-        let k = gcd::euclid_u32(a, N);
+        let k = gcd::euclid_u32(a, number);
         if k != 1 {
             debug!("N and a share the factor {}, done", k);
             return k;
         }
 
         // Quantum part
-        let r = find_r(N, a);
+        let r = find_r(number, a);
 
         if r % 2 == 0 {
             // Calculate a^(r/2) % N
-            let k = modpow(a, r / 2, N);
+            let k = modpow(a, r / 2, number);
 
-            if k != N - 1 {
+            if k != number - 1 {
                 debug!("Calculated a^(r/2) % N = {}", k);
 
-                let factor1 = gcd::euclid_u32(k - 1, N);
-                let factor2 = gcd::euclid_u32(k + 1, N);
+                let factor1 = gcd::euclid_u32(k - 1, number);
+                let factor2 = gcd::euclid_u32(k + 1, number);
                 debug!("GCD({}-1, N) = {}", k, factor1);
                 debug!("GCD({}+1, N) = {}", k, factor2);
                 return factor1.max(factor2);
@@ -137,9 +136,9 @@ fn limit_denominator(m: u32, n: u32, l: u32) -> (u32, u32) {
 }
 
 /// Finds r such that maybe a^(r/2) + 1 shares a factor with N
-fn find_r(N: u32, a: u32) -> u32 {
+fn find_r(number: u32, a: u32) -> u32 {
     // We need n qubits to represent N
-    let n = (N as f64).log2().ceil() as usize;
+    let n = (number as f64).log2().ceil() as usize;
 
     // Create a register with 3n qubits
     let mut reg = Register::new(&vec![false; 3 * n]);
@@ -157,7 +156,7 @@ fn find_r(N: u32, a: u32) -> u32 {
     // Targets for the controlled u gates
     let targets: Vec<usize> = (2 * n..3 * n).collect();
     for i in 0..2 * n {
-        let u_gate = u_gate(targets.clone(), N, a, i);
+        let u_gate = u_gate(targets.clone(), number, a, i);
         let c_u_gate = operation::to_controlled(u_gate, i);
 
         debug!("Applying c_u_gate for i = {}", i);
@@ -188,7 +187,7 @@ fn find_r(N: u32, a: u32) -> u32 {
 }
 
 fn parse_args(args: Vec<String>) -> (u32, u32) {
-    let N = args
+    let number = args
         .iter()
         .find(|x| x.starts_with("N="))
         .unwrap_or(&"N=15".to_owned())
@@ -206,7 +205,7 @@ fn parse_args(args: Vec<String>) -> (u32, u32) {
         .unwrap()
         .parse::<u32>()
         .unwrap();
-    (N, n_times)
+    (number, n_times)
 }
 
 #[cfg(test)]
@@ -293,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn test_c_u_gate() {
+    fn test_u_gate() {
         let n = 4;
         for modulus in 1..1<<n {
             for base in 0..1<<n {

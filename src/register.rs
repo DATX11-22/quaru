@@ -1,6 +1,6 @@
 use crate::{
     math,
-    operation::{self, Operation, OperationTrait},
+    operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
 use num::{Complex, One};

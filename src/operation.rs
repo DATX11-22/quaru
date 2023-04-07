@@ -8,9 +8,9 @@
 //! ```
 //! use ndarray::{array, Array2};
 //! use quaru::operation::Operation;
-//! use quaru::math::real_to_complex;
+//! use quaru::math::real_arr_to_complex;
 //!
-//! let matrix = real_to_complex(array![[1.0, 0.0], [0.0, 1.0]]);
+//! let matrix = real_arr_to_complex(array![[1.0, 0.0], [0.0, 1.0]]);
 //! let targets = vec![0];
 //!
 //! let identity: Option<Operation> = Operation::new(matrix, targets);

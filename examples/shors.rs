@@ -2,7 +2,6 @@ use std::env;
 
 use colored::Colorize;
 use log::debug;
-use ndarray::Array2;
 use num::traits::Pow;
 use num::Complex;
 use quant::{operation, register::Register};
@@ -54,21 +53,20 @@ fn modpow(mut base: u32, mut exponent: u32, modulus: u32) -> u32 {
     return result;
 }
 
-fn c_u_gate(targets: Vec<usize>, N: u32, a: u32, i: usize) -> operation::Operation {
-    // Calculate 2^i
-    let pow = 1 << i;
+/// Create a gate that multiplies its input by a^2^i mod N.
+fn u_gate(targets: Vec<usize>, modulus: u32, a: u32, i: usize) -> operation::Operation {
+    // Calculate a^2^i mod N
+    let a_pow_mod: i32 = modpow(a, 1<<i, modulus) as i32;
 
-    // Find a^pow mod N
-    let a_pow_mod: i32 = modpow(a, pow, N) as i32;
+    debug!("a = {}, i = {}, mod = {}", a, i, modulus);
+    debug!("a^2^i % mod = {}", a_pow_mod);
 
-    debug!("a = {}, pow = {}, mod = {}", a, pow, N);
-    debug!("a_pow_mod = {}", a_pow_mod);
     // Create the function for the controlled u gate
-    let func = |x: i32| -> i32 { (x * a_pow_mod) % N as i32 };
-    // Create the controlled u gate
+    let func = |x: i32| -> i32 { (x * a_pow_mod) % modulus as i32 };
+    // Create the gate
     let u_gate = operation::to_quantum_gate(&func, targets.clone());
 
-    operation::to_controlled(u_gate, i)
+    u_gate
 }
 
 fn shors(N: u32) -> u32 {
@@ -123,7 +121,8 @@ fn shors(N: u32) -> u32 {
 
 /// Given fraction m/n and a positive integer l, returns integers r and s such that
 /// r/s is the closest fraction to m/n with denominator bounded by l.
-/// Algorithm from https://github.com/python/cpython/issues/95723
+/// Uses the continued fraction algorithm.
+/// Adapted from python implementation in https://github.com/python/cpython/issues/95723
 fn limit_denominator(m: u32, n: u32, l: u32) -> (u32, u32) {
     let (mut a, mut b, mut p, mut q, mut r, mut s, mut v) = (n, m % n, 1, 0, m / n, 1, 1);
     while 0 < b && q + a / b * s <= l {
@@ -158,7 +157,8 @@ fn find_r(N: u32, a: u32) -> u32 {
     // Targets for the controlled u gates
     let targets: Vec<usize> = (2 * n..3 * n).collect();
     for i in 0..2 * n {
-        let c_u_gate = c_u_gate(targets.clone(), N, a, i);
+        let u_gate = u_gate(targets.clone(), N, a, i);
+        let c_u_gate = operation::to_controlled(u_gate, i);
 
         debug!("Applying c_u_gate for i = {}", i);
         reg.apply(&c_u_gate);
@@ -211,12 +211,10 @@ fn parse_args(args: Vec<String>) -> (u32, u32) {
 
 #[cfg(test)]
 mod tests {
-    use ndarray::Array2;
+    use ndarray::{Array2, s};
     use num::{abs, Complex};
-    use quant::operation::{self, Operation};
+    use quant::operation::{self, Operation, OperationTrait};
     use quant::register::Register;
-
-    use crate::c_u_gate;
 
     #[test]
     fn limit_denominator_working() {
@@ -294,28 +292,27 @@ mod tests {
         }
     }
 
-    /*
-    // WIP
-
     #[test]
-    fn test_mod_exponentiation() {
+    fn test_c_u_gate() {
         let n = 4;
-        for modulo in 0..1024 {
-            for a in 0..1024 {
-                for b in 0..1024 as u32 {
-                    let mut reg1 = Register::from_int(3 * n, b as usize % (1 << n));
-                    reg1.apply(&operation::qft(n));
-                    reg1.apply(&c_u_gate((0..n * 3).collect(), modulo, a, b as usize));
+        for modulus in 1..1<<n {
+            for base in 0..1<<n {
+                for i in 0..1<<n {
+                    for input in 0..1<<n {
+                        let mut reg = Register::from_int(n, input);
 
-                    let mut reg2 = Register::from_int(2 * n, super::modpow(a, b, modulo) as usize);
-                    reg2.apply(&operation::qft(n));
+                        let gate = super::u_gate((0..n).collect(), modulus, base, i);
 
-                    assert!(equal_qubits(reg1.state[:2*n], reg2.state));
+                        reg.apply(&gate);
+
+                        let mut answer = Register::from_int(n, input * super::modpow(base, 1<<i as u32, modulus) as usize % modulus as usize);
+
+                        assert!(equal_qubits(reg.state, answer.state));
+                    }
                 }
             }
         }
     }
-    */
 
     // Copied from register_operation_tests.rs
     pub fn equal_qubits(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>) -> bool {

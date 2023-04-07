@@ -1,16 +1,16 @@
 extern crate proptest;
 use std::ops::Range;
 
-use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
-use num::Complex;
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quaru::operation::{self, toffoli, Operation};
 use quaru::register::Register;
+use quaru::math::{to_qbit_vector, equal_qubits};
 use num::Complex;
+use ndarray::{array, ArrayBase, Dim, OwnedRepr, Array2, linalg};
+use std::f64::consts;
 
 #[test]
-// #[ignore = "Wait for feature confirmation"]
 fn measure_on_zero_state_gives_false() {
     let mut register = Register::new(&[false]);
     let input = register.measure(0);
@@ -221,7 +221,6 @@ proptest!(
         reg.apply_all(&op.0);
     }
 
-
     #[test]
     fn quantum_teleportation(q0 in Qubit::arbitrary_with(())) {
 
@@ -302,22 +301,6 @@ proptest!(
     }
 );
 
-pub fn equal_qubits(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>) -> bool {
-    let mut equal = true;
-    for (i, s) in a.iter().enumerate() {
-        // denna kan vara lite för hård, -a = a eftersom de har samma sannolikhet
-        if (s - b[(i, 0)]).norm() >= 1e-8 {
-            equal = false;
-        }
-    }
-    equal
-}
-pub fn to_qbit_vector(bit: &bool) -> Array2<Complex<f64>> {
-    match bit {
-        true => array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
-        false => array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
-    }
-}
 pub fn get_state_of_qubit(
     state: ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>,
     n: usize,

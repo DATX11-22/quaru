@@ -4,6 +4,7 @@ use colored::Colorize;
 use log::debug;
 use num::traits::Pow;
 use quaru::{operation, register::Register};
+use quaru::math::{limit_denominator, modpow};
 use rand::Rng;
 use stopwatch::Stopwatch;
 
@@ -38,18 +39,6 @@ fn main() {
     );
     println!("Avarage time: {} ms", avg.to_string().bright_purple());
     println!("Best time: {} ms", min.to_string().green());
-}
-
-fn modpow(mut base: u32, mut exponent: u32, modulus: u32) -> u32 {
-    let mut result = 1;
-    while exponent > 0 {
-        if exponent % 2 == 1 {
-            result = (result * base) % modulus;
-        }
-        exponent /= 2;
-        base = base * base % modulus;
-    }
-    return result;
 }
 
 /// Create a gate that multiplies its input by a^2^i mod N.
@@ -115,23 +104,6 @@ fn shors(number: u32) -> u32 {
         }
 
         iter += 1;
-    }
-}
-
-/// Given fraction m/n and a positive integer l, returns integers r and s such that
-/// r/s is the closest fraction to m/n with denominator bounded by l.
-/// Uses the continued fraction algorithm.
-/// Adapted from python implementation in https://github.com/python/cpython/issues/95723
-fn limit_denominator(m: u32, n: u32, l: u32) -> (u32, u32) {
-    let (mut a, mut b, mut p, mut q, mut r, mut s, mut v) = (n, m % n, 1, 0, m / n, 1, 1);
-    while 0 < b && q + a / b * s <= l {
-        (a, b, p, q, r, s, v) = (b, a % b, r, s, p + a / b * r, q + a / b * s, -v);
-    }
-    let (t, u) = (p + (l - q) / s * r, q + (l - q) / s * s);
-    if 2 * b * u <= n {
-        (r, s)
-    } else {
-        (t, u)
     }
 }
 
@@ -212,50 +184,27 @@ fn parse_args(args: Vec<String>) -> (u32, u32) {
 mod tests {
     use ndarray::{Array2, s};
     use num::{abs, Complex};
-    use quant::operation::{self, Operation, OperationTrait};
-    use quant::register::Register;
-
-    #[test]
-    fn limit_denominator_working() {
-        let mx = 30;
-        for m in 0..mx {
-            for n in 1..mx {
-                for l in 1..mx {
-                    let (r, s) = super::limit_denominator(m, n, l);
-                    if m == 0 {
-                        assert!(r == 0 && s == 1);
-                        continue;
-                    }
-                    for r2 in 1..mx {
-                        for s2 in 1..=l {
-                            assert!(
-                                abs(r2 as f64 / s2 as f64 - m as f64 / n as f64) + 1e-15
-                                    >= abs(r as f64 / s as f64 - m as f64 / n as f64)
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
+    use quaru::operation::{self, Operation, OperationTrait};
+    use quaru::register::Register;
+    use quaru::math::{equal_qubits, modpow};
 
     #[test]
     fn period_finder_working() {
-        for N in 2..8 {
-            for a in 2..N {
-                if gcd::euclid_u32(N, a) != 1 {
+        for number in 2..8 {
+            for a in 2..number {
+                if gcd::euclid_u32(number, a) != 1 {
                     continue;
                 }
                 let mut period = 1;
                 let mut a_pow = a;
                 while a_pow != 1 {
-                    a_pow = a_pow * a % N;
+                    a_pow = a_pow * a % number;
                     period += 1;
                 }
 
                 let mut ok = 0;
                 for i in 0..20 {
-                    let r = super::find_r(N, a);
+                    let r = super::find_r(number, a);
                     if period % r == 0 {
                         ok += 1;
                     }
@@ -304,24 +253,12 @@ mod tests {
 
                         reg.apply(&gate);
 
-                        let mut answer = Register::from_int(n, input * super::modpow(base, 1<<i as u32, modulus) as usize % modulus as usize);
+                        let mut answer = Register::from_int(n, input * modpow(base, 1<<i as u32, modulus) as usize % modulus as usize);
 
                         assert!(equal_qubits(reg.state, answer.state));
                     }
                 }
             }
         }
-    }
-
-    // Copied from register_operation_tests.rs
-    pub fn equal_qubits(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>) -> bool {
-        let mut equal = true;
-        for (i, s) in a.iter().enumerate() {
-            // denna kan vara lite för hård, -a = a eftersom de har samma sannolikhet
-            if (s - b[(i, 0)]).norm() >= 1e-8 {
-                equal = false;
-            }
-        }
-        equal
     }
 }

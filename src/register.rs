@@ -61,7 +61,7 @@ impl Register {
             size: n,
         }
     }
-    
+
     /// Creates a new state with a list of 2 dimensional arrays
     /// of complex numbers. 
     /// 
@@ -288,15 +288,6 @@ impl Register {
         Ok(res)
     }
 
-    /// Prints the non zero probability in percent of falling into different states
-    pub fn print_nonzero_probabilities(&self) {
-        let n = self.size;
-        for (i, s) in self.state.iter().enumerate() {
-            if s.norm_sqr() > 1e-8 {
-                println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
-            }
-        }
-    }
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
         let n = self.size;

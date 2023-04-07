@@ -3,7 +3,7 @@ use std::env;
 use colored::Colorize;
 use log::debug;
 use num::traits::Pow;
-use quant::{operation, register::Register};
+use quaru::{operation, register::Register};
 use rand::Rng;
 use stopwatch::Stopwatch;
 

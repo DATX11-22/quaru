@@ -1,5 +1,5 @@
 [package]
-name = "quant"
+name = "quaru"
 version = "0.1.0"
 edition = "2021"
 
@@ -17,10 +17,9 @@ colored = "2.0.0"
 log = "0.4.17"
 env_logger = "0.10.0"
 
-
-
+inquire = "0.5.3"
+clap = { version = "4.1.6", features = ["derive"] }
+openqasm-parser = "1.0.0"
 
 [dev-dependencies]
 proptest = "1.1.0"
-
-

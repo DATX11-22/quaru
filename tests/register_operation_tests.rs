@@ -5,9 +5,9 @@ use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
 use num::Complex;
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
-use quant::operation::{self, Operation};
-use quant::register::Register;
-use std::{f64::consts, vec};
+use quaru::operation::{self, toffoli, Operation};
+use quaru::register::Register;
+use num::Complex;
 
 #[test]
 // #[ignore = "Wait for feature confirmation"]
@@ -17,6 +17,21 @@ fn measure_on_zero_state_gives_false() {
     let expected = false;
 
     assert_eq!(input, expected);
+}
+
+/// Tests that creating a state |0>, |1>, 1/sqrt(2)|0> + 1/sqrt(2)|1>
+/// is equal to creating a state |0>, |1>, |0> and applying a hadamard
+/// gate to qubit 2
+#[test]
+fn new_qubits_test() {
+    let reg_qubits = Register::new_qubits(&[
+        ndarray::array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
+        ndarray::array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
+        ndarray::array![[Complex::new(1.0/(2.0_f64).sqrt(), 0.0)], [Complex::new(1.0/(2.0_f64).sqrt(), 0.0)]]
+    ]);
+    let mut reg = Register::new(&[false, true, false]);
+    reg.apply(&operation::hadamard(2));
+    assert_eq!(reg, reg_qubits); 
 }
 
 proptest!(
@@ -106,7 +121,7 @@ proptest!(
 
     #[test]
     // #[ignore = "Indexing issue in register, is weird"]
-    fn first_bell_state_measure_equal(i in 0..5 as usize) {
+    fn first_bell_state_measure_equal(i in 0..5_usize) {
         let mut reg = Register::new(&[false; 6]);
         let hadamard = operation::hadamard(i);
         let cnot = operation::cnot(i, i + 1);
@@ -144,14 +159,66 @@ proptest!(
     }
 
     #[test]
-    fn arbitrary_binary_applied_twice_gives_equal_after_swap_is_implemented(op in BinaryOperationAfterSwapIsImplemented::arbitrary_with(0..6)) {
+    fn swap_single_true_qubit(i in 0..5_usize, j in 0..5_usize){
+        // qubit i is 1 and all other are 0
+        // qubit i and j are swapped
+        // qubit j should now be the only 1
+        if i != j {
+            let mut qubits = [false; 6];
+            qubits[i] = true;
+            let mut reg = Register::new(&qubits);
+            let op = operation::swap(i, j);
+            reg.apply(&op);
+
+            for k in 0..5 {
+                assert_eq!(reg.measure(k), k==j);
+            }
+        }
+    }
+
+    #[test]
+    fn toffoli_test(n in 2..=6_usize,
+        s1 in any::<bool>(),
+        s2 in any::<bool>(),
+        s3 in any::<bool>(),
+        s4 in any::<bool>(),
+        s5 in any::<bool>(),
+        s6 in any::<bool>())
+    {
+        let init_state = [s1, s2, s3, s4, s5, s6];
+        let mut reg = Register::new(&init_state);
+        let init_target_value = init_state[n-1];
+
+        reg.apply(&toffoli(&(0..n-1).collect(), n-1));
+
+        let control_measure = (0..n-1).all(|i| reg.measure(i));
+        let res = if control_measure {
+            let target_measure = reg.measure(n-1);
+            target_measure != init_target_value
+        } else {
+            let target_measure = reg.measure(n-1);
+            target_measure == init_target_value
+        };
+
+        assert!(res);
+    }
+
+    #[test]
+    fn apply_all_test(n in 2..=6_usize) {
+        let mut reg1 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
+        let mut reg2 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
+        
+        (0..reg1.size()).for_each(|i| { reg1.apply(&operation::hadamard(i)); });
+        reg2.apply_all(&operation::hadamard(0));
+
+        assert!(reg1 == reg2)
+    }
+
+    #[test]
+    #[should_panic]
+    fn apply_all_panics_if_not_unary(op in BinaryOperation::arbitrary_with(0..6)) {
         let mut reg = Register::new(&[false; 6]);
-        let expected = reg.clone();
-
-        reg.apply(&op.0);
-        reg.apply(&op.0);
-
-        assert_eq!(reg, expected);
+        reg.apply_all(&op.0);
     }
 
 
@@ -312,37 +379,23 @@ impl Arbitrary for UnaryOperation {
         ])
     }
 }
+
 #[derive(Debug, Clone)]
 struct BinaryOperation(Operation);
 impl Arbitrary for BinaryOperation {
     type Parameters = Range<usize>;
     type Strategy = Select<BinaryOperation>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        let r = rand::thread_rng().gen_range(args.clone());
-        let (i, j) = match args.max().unwrap() == r {
-            true => (r, r - 1),
-            false => (r + 1, r),
-        };
-        select(vec![
-            BinaryOperation(operation::cnot(i, j)),
-            BinaryOperation(operation::swap(i, j)),
-        ])
-    }
-}
-#[derive(Debug, Clone)]
-struct BinaryOperationAfterSwapIsImplemented(Operation);
-impl Arbitrary for BinaryOperationAfterSwapIsImplemented {
-    type Parameters = Range<usize>;
-    type Strategy = Select<BinaryOperationAfterSwapIsImplemented>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let i = rand::thread_rng().gen_range(args.clone());
+
         let mut j = rand::thread_rng().gen_range(args.clone());
         while i == j {
             j = rand::thread_rng().gen_range(args.clone());
         }
+
         select(vec![
-            BinaryOperationAfterSwapIsImplemented(operation::cnot(i, j)),
-            BinaryOperationAfterSwapIsImplemented(operation::swap(i, j)),
+            BinaryOperation(operation::cnot(i, j)),
+            BinaryOperation(operation::swap(i, j)),
         ])
     }
 }

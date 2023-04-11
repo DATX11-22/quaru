@@ -31,13 +31,13 @@ fn main() {
         println!("Running for N = {}", number);
 
         // Find a factor with shor's algorithm
-        let f1 = shors(number);
-        let f2 = number / f1;
+        let d1 = shors(number);
+        let d2 = number / d1;
         println!(
             "The factors of {} are {} and {}",
             number.to_string().green(),
-            f1.to_string().blue(),
-            f2.to_string().yellow()
+            d1.to_string().blue(),
+            d2.to_string().yellow()
         );
         let t = sw.elapsed_ms();
         runtimes.push(t);
@@ -75,8 +75,17 @@ fn u_gate(targets: Vec<usize>, modulus: u32, a: u32, i: usize) -> operation::Ope
 /// Shor's algorithm
 /// This algorithm finds a factor of the number N.
 fn shors(number: u32) -> u32 {
+    // Shor's algorithm doesn't work for even numbers
     if number % 2 == 0 {
         return 2;
+    }
+
+    // Shor's algorithm doesn't work for prime powers
+    for k in 2..number.ilog2()+1 {
+        let c = ((number as f64).powf((k as f64).recip()) + 1e-9) as u32;
+        if c.pow(k) == number {
+            return c;
+        }
     }
 
     let mut iter = 0;
@@ -177,9 +186,6 @@ fn find_r(number: u32, a: u32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use ndarray::{Array2, s};
-    use num::{abs, Complex};
-    use quaru::operation::{self, Operation, OperationTrait};
     use quaru::register::Register;
     use quaru::math::{equal_qubits, modpow};
 
@@ -198,7 +204,7 @@ mod tests {
                 }
 
                 let mut ok = 0;
-                for i in 0..20 {
+                for _ in 0..20 {
                     let r = super::find_r(number, a);
                     if period % r == 0 {
                         ok += 1;
@@ -230,7 +236,7 @@ mod tests {
 
                         reg.apply(&gate);
 
-                        let mut answer = Register::from_int(n, input * modpow(base, 1<<i as u32, modulus) as usize % modulus as usize);
+                        let answer = Register::from_int(n, input * modpow(base, 1<<i as u32, modulus) as usize % modulus as usize);
 
                         assert!(equal_qubits(reg.state, answer.state));
                     }

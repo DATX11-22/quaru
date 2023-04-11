@@ -11,10 +11,6 @@ Repository for group 22 quantum computer simulator bachelor's thesis.
 - [Project Report](https://www.overleaf.com/read/tsphshnkpfxy)
 - [Project Plan](https://www.overleaf.com/project/63ca8a6b32ea8a38a590acc1)
 
-
-
-
-
 #### BLAS feature
 
 We provide suport for enabling the feature "blas" in the [ndarray](https://crates.io/crates/ndarray) crate.
@@ -34,6 +30,8 @@ blas-src = { version = "0.8", features = ["intel-mkl"] }
 blas-src = { version = "0.8", features = ["netlib"] }
 blas-src = { version = "0.8", features = ["openblas"] }
 ```
+
+###### OpenBLAS
 
 If you want to use the [OpenBLAS](http://www.openblas.net/) implementation your toml should look like this:
 

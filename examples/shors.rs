@@ -1,4 +1,4 @@
-use std::env;
+use clap::Parser;
 
 use colored::Colorize;
 use log::debug;
@@ -8,33 +8,48 @@ use quaru::math::{limit_denominator, modpow};
 use rand::Rng;
 use stopwatch::Stopwatch;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let (number, n_times) = parse_args(args);
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Number to factorize
+    #[arg(short, long, default_value_t = 15)]
+    number: u32,
 
-    let mut times = Vec::<i64>::new();
+    /// Number of times to run the algorithm
+    #[arg(short, long, default_value_t = 1)]
+    n_times: u32,
+}
+
+fn main() {
+    let args = Args::parse();
+    let number = args.number;
+    let n_times = args.n_times;
+
+    let mut runtimes = Vec::<i64>::new();
     for _ in 0..n_times {
         let sw = Stopwatch::start_new();
         println!("Running for N = {}", number);
-        let d1 = shors(number);
-        let d2 = number / d1;
+
+        // Find a factor with shor's algorithm
+        let f1 = shors(number);
+        let f2 = number / f1;
         println!(
             "The factors of {} are {} and {}",
             number.to_string().green(),
-            d1.to_string().blue(),
-            d2.to_string().yellow()
+            f1.to_string().blue(),
+            f2.to_string().yellow()
         );
         let t = sw.elapsed_ms();
-        times.push(t);
+        runtimes.push(t);
         println!("Time elapsed: {} ms", t.to_string().blue());
         println!("------------------------------------")
     }
 
-    let avg = times.iter().sum::<i64>() / times.len() as i64;
-    let min = times.iter().min().unwrap();
+    let avg = runtimes.iter().sum::<i64>() / runtimes.len() as i64;
+    let min = runtimes.iter().min().unwrap();
     println!(
         "Total time: {} ms after {} runs",
-        times.iter().sum::<i64>().to_string().red(),
+        runtimes.iter().sum::<i64>().to_string().red(),
         n_times.to_string().red()
     );
     println!("Avarage time: {} ms", avg.to_string().bright_purple());
@@ -57,6 +72,8 @@ fn u_gate(targets: Vec<usize>, modulus: u32, a: u32, i: usize) -> operation::Ope
     u_gate
 }
 
+/// Shor's algorithm
+/// This algorithm finds a factor of the number N.
 fn shors(number: u32) -> u32 {
     if number % 2 == 0 {
         return 2;
@@ -158,28 +175,6 @@ fn find_r(number: u32, a: u32) -> u32 {
     r
 }
 
-fn parse_args(args: Vec<String>) -> (u32, u32) {
-    let number = args
-        .iter()
-        .find(|x| x.starts_with("N="))
-        .unwrap_or(&"N=15".to_owned())
-        .split("=")
-        .last()
-        .unwrap()
-        .parse::<u32>()
-        .unwrap();
-    let n_times = args
-        .iter()
-        .find(|x| x.starts_with("n_times="))
-        .unwrap_or(&"n_times=1".to_owned())
-        .split("=")
-        .last()
-        .unwrap()
-        .parse::<u32>()
-        .unwrap();
-    (number, n_times)
-}
-
 #[cfg(test)]
 mod tests {
     use ndarray::{Array2, s};
@@ -214,27 +209,9 @@ mod tests {
         }
     }
 
-    fn is_prime(n: u32) -> bool {
-        if n == 2 {
-            return true;
-        }
-        if n % 2 == 0 {
-            return false;
-        }
-        for i in 3..n {
-            if n % i == 0 {
-                return false;
-            }
-        }
-        true
-    }
-
     #[test]
     fn shors_working() {
-        for n in 2..16 {
-            if is_prime(n) {
-                continue;
-            }
+        for n in [4,6,8,9,10,12,14,15] {
             let r = super::shors(n);
             assert!(n % r == 0 && 1 < r && r < n);
         }

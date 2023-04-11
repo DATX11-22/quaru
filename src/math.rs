@@ -43,6 +43,14 @@ pub fn new_complex(re: f64, im: f64) -> c64 {
     Complex::new(re, im)
 }
 
+/// Create state from the integer val.
+pub fn int_to_state(val: usize, len: usize) -> Array2<Complex<f64>> {
+    let mut state: Array2<Complex<f64>> = Array2::zeros((len, 1));
+    state[(val, 0)] = Complex::new(1.0, 0.0);
+
+    state
+}
+
 /// Given fraction m/n and a positive integer l, returns integers r and s such that
 /// r/s is the closest fraction to m/n with denominator bounded by l.
 /// Uses the continued fraction algorithm.
@@ -60,13 +68,17 @@ pub fn limit_denominator(m: u32, n: u32, l: u32) -> (u32, u32) {
     }
 }
 
+/// Calculate base^exponent mod modulus.
+/// Time complexity O(log(exponent)).
 pub fn modpow(mut base: u32, mut exponent: u32, modulus: u32) -> u32 {
     let mut result = 1;
     while exponent > 0 {
         if exponent % 2 == 1 {
+            // One more multiplication.
             result = (result * base) % modulus;
         }
         exponent /= 2;
+        // Double the number of multiplications.
         base = base * base % modulus;
     }
     return result;
@@ -86,16 +98,20 @@ mod tests {
     #[test]
     fn limit_denominator_working() {
         let mx = 30;
+        // Test all combinations of m, n, l less than mx.
         for m in 0..mx {
             for n in 1..mx {
                 for l in 1..mx {
+                    // Find the fraction r/s closest to m/n, with r <= l.
                     let (r, s) = super::limit_denominator(m, n, l);
                     if m == 0 {
                         assert!(r == 0 && s == 1);
                         continue;
                     }
+                    // Check if there is a better answer by trying all possibilities.
                     for r2 in 1..mx {
                         for s2 in 1..=l {
+                            // Assert r2/s2 is not closer to m/n than r/s.
                             assert!(
                                 abs(r2 as f64 / s2 as f64 - m as f64 / n as f64) + 1e-15
                                     >= abs(r as f64 / s as f64 - m as f64 / n as f64)

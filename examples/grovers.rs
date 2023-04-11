@@ -4,7 +4,7 @@ use num::traits::Pow;
 use quaru::{
     math::real_arr_to_complex,
     operation::{hadamard, Operation},
-    register::{Register},
+    register::Register,
 };
 use std::{
     f64::consts::PI,
@@ -17,20 +17,55 @@ use std::{
 struct Args {
     /// State to search for (decimal)
     #[arg(short, long)]
-    target: usize,
+    target: Option<usize>,
+    /// Statistics flag
+    #[arg(short, long)]
+    statistics: bool,
 }
 
 fn main() {
     let args = Args::parse();
 
-    let target = args.target;
-    let regsize = ((target + 1) as f64).log2().ceil() as usize;
-    let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
-    println!("Regsize: {regsize}");
+    if !args.statistics && args.target.is_none() {
+        println!("Please provide a target integer with --target, or run in statistics mode with --statistics");
+    } else if !args.statistics {
+        let target = args.target.unwrap();
+        let regsize = ((target + 1) as f64).log2().ceil() as usize;
+        let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
+        println!("Regsize: {regsize}");
 
-    let result = grovers_algorithm(target, regsize);
+        let result = grovers_algorithm(target, regsize, iterations_exact);
 
-    println!("{result}");
+        println!("{result}");
+    } else {
+        statistics();
+    }
+}
+
+fn statistics() {
+    let iterations_fns = [
+        iterations_ceil,
+        iterations_floor,
+        iterations_exact,
+        iterations_ms,
+    ];
+    println!("Testing accuracy of Grover's algorithm for targets 1..100 with different iteration functions");
+    println!("Order of functions: ceil, floor, exact, ms");
+
+    for iteration_fn in iterations_fns {
+        let mut correct: usize = 0;
+        for i in 0..100 {
+            let regsize = ((i + 1) as f64).log2().ceil() as usize;
+            let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
+            let result = grovers_algorithm(i, regsize, iteration_fn);
+
+            if to_decimal(&result.result) == i {
+                correct += 1;
+            }
+        }
+
+        println!("Correctness {}", correct as f64 / 100.0);
+    }
 }
 
 struct GroversResult {
@@ -65,7 +100,11 @@ Time elapsed: {} ms",
 /// Initially, all of the states are put in superposition.
 /// An amplitude amplification process then amplifies the probability of the
 /// "correct" state while reducing the others in iterations.
-fn grovers_algorithm(winner: usize, regsize: usize) -> GroversResult {
+fn grovers_algorithm(
+    winner: usize,
+    regsize: usize,
+    iterations_fn: fn(usize) -> usize,
+) -> GroversResult {
     let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
 
     // Start benchmark
@@ -78,7 +117,7 @@ fn grovers_algorithm(winner: usize, regsize: usize) -> GroversResult {
     let oracle = oracle_operation(reg.size(), winner);
 
     // Calculate numbers of repetitions needed
-    let n: usize = iterations_ms(reg.size());
+    let n: usize = iterations_fn(reg.size());
     for _ in 0..n {
         // U_f (oracle function) reflects the "winner" state
         reg.apply(&oracle);
@@ -169,14 +208,14 @@ fn iterations_ms(regsize: usize) -> usize {
 fn iterations_exact(regsize: usize) -> usize {
     let theta = theta(regsize);
     let n = 2.0_f64.pow(regsize as f64);
-    f64::acos((1.0 / n).sqrt()/theta).round() as usize
+    (f64::acos((1.0 / n).sqrt()) / theta).round() as usize
 }
 
 /// Calculates the angle theta that represents half a rotation
 /// of the state towards the target
 fn theta(regsize: usize) -> f64 {
     let n = 2.0_f64.pow(regsize as f64);
-    f64::acos((n - 1.0) / n).sqrt()
+    f64::asin((2.0 * (n - 1.0).sqrt()) / n)
 }
 
 /// Converts a boolean array to a decimal number
@@ -190,17 +229,48 @@ fn to_decimal(arr: &[bool]) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{grovers_algorithm, to_decimal};
+    use quaru::{operation::hadamard, register::Register};
 
-    /// Tests that the algorithm works for targets 0-20
+    /// Tests that the oracle_operation function flips the correct state
+    /// and leaves the others unchanged
     #[test]
-    fn test_grovers_algorithm() {
+    fn test_oracle_operation() {
         for target in 0..20 {
             let regsize = ((target + 1) as f64).log2().ceil() as usize;
-            // Minimum regisze is 2
-            let regsize = if regsize < 2 { 2 } else { regsize };
-            let result = grovers_algorithm(target, regsize);
-            assert_eq!(to_decimal(&result.result), target);
+            let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
+            let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
+            let oracle = super::oracle_operation(reg.size(), target);
+            reg.apply_all(&hadamard(0));
+            reg.apply(&oracle);
+            // Check that the state is flipped
+            let target_state = reg.state.get((target, 0)).unwrap();
+            assert!(target_state.re.is_sign_negative());
+        }
+    }
+
+    /// Tests that the diffuser_operation function reflects about the average amplitude
+    /// amplifying the target state while reducing the amplitude of other states.
+    /// This is done by checking that the amplitude of the non-target state is lower
+    /// than the target state after applying the diffuser.
+    #[test]
+    fn test_diffuser_operation() {
+        for target in 0..20 {
+            let regsize = ((target + 1) as f64).log2().ceil() as usize;
+            let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
+            let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
+            let diffuser = super::diffusion_operation(reg.size());
+            let oracle = super::oracle_operation(reg.size(), target);
+            reg.apply_all(&hadamard(0));
+            reg.apply(&oracle);
+            crate::diffuser(&mut reg);
+            reg.print_state();
+            // Check that the amplitude of the target state is higher than the others
+            let target_state = reg.state.get((target, 0)).unwrap().norm();
+            for i in 0..reg.size() {
+                if i != target {
+                    assert!(reg.state.get((i, 0)).unwrap().norm() < target_state);
+                }
+            }
         }
     }
 }

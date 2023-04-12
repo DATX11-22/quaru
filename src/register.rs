@@ -1,10 +1,9 @@
 //! The `register` module provides quantum register functionality.
 use crate::{
-    math,
+    math::{self, c64},
     operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
-use num::Complex;
 use rand::prelude::*;
 
 /// Errors which can occur when an operation is applied on the register.
@@ -56,6 +55,13 @@ impl Register {
         }
     }
 
+    pub fn from_int(n: usize, k: usize) -> Self {
+        Self {
+            state: math::int_to_state(k, 1 << n),
+            size: n,
+        }
+    }
+
     /// Creates a new state with a list of 2 dimensional arrays
     /// of complex numbers.
     ///
@@ -65,14 +71,14 @@ impl Register {
     ///
     /// **Panics** if 2 dimensional array doesn't contain 2 elements
     /// or if their probability doesn't add to 1
-    pub fn new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Self {
+    pub fn new_qubits(input_bits: &[Array2<math::c64>]) -> Self {
         Self::try_new_qubits(input_bits).expect("Incorrect input qubits")
     }
 
     /// Tries to create a new state from list of qubits
     /// Returns a Result which is either a register or an
     /// error if input was not correct qubits
-    pub fn try_new_qubits(input_bits: &[Array2<Complex<f64>>]) -> Result<Self, OperationError> {
+    pub fn try_new_qubits(input_bits: &[Array2<math::c64>]) -> Result<Self, OperationError> {
         //check if input is correct
         let res = input_bits.iter().map(Self::is_qubit);
         //check if everything was correct otherwise panic
@@ -82,7 +88,7 @@ impl Register {
             }
         }
 
-        let base_state = array![[Complex::new(1.0, 0.0)]];
+        let base_state = array![[math::new_complex(1.0, 0.0)]];
 
         //create state
         let state_matrix = input_bits
@@ -98,7 +104,7 @@ impl Register {
     /// Checks if input qubit has total probability 1
     /// Outputs true if total probability is one and
     /// false if total probability is not one
-    pub fn is_one(qubit: &Array2<Complex<f64>>) -> bool {
+    pub fn is_one(qubit: &Array2<math::c64>) -> bool {
         let mut total_prob = -1.0;
         //Create total prob by squaring individual values
         for values in qubit {
@@ -111,7 +117,7 @@ impl Register {
     /// Checks that input qubit is correct
     /// Outputs false if the length of input is not 2
     /// otherwise outputs return value of is_one
-    pub fn is_qubit(qubit: &Array2<Complex<f64>>) -> bool {
+    pub fn is_qubit(qubit: &Array2<c64>) -> bool {
         if qubit.len() == 2 {
             Self::is_one(qubit)
         } else {

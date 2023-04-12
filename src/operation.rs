@@ -25,9 +25,13 @@
 //!
 //! let identity: Operation = identity(0);
 //! ```
+use crate::math::{c64, int_to_state, new_complex, real_arr_to_complex};
 use ndarray::{array, Array2};
 use std::{f64::consts, vec};
-use crate::math::{real_arr_to_complex, c64, new_complex};
+
+use ndarray::linalg;
+use num::complex::ComplexFloat;
+use num::Complex;
 
 // Naming?
 pub trait OperationTrait {
@@ -105,6 +109,19 @@ pub fn hadamard(target: usize) -> Operation {
 /// `target` qubit.
 ///
 /// Flips the target qubit if and only if the control qubit is |1⟩.
+pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
+    let mut matrix = hadamard(targets[0]).matrix();
+    let len = targets.len();
+
+    for i in 1..len {
+        matrix = linalg::kron(&hadamard(targets[i]).matrix(), &matrix);
+    }
+    Operation {
+        matrix: matrix,
+        targets: targets,
+    }
+}
+
 pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![
@@ -114,6 +131,68 @@ pub fn cnot(control: usize, target: usize) -> Operation {
             [0.0, 0.0, 1.0, 0.0]
         ]),
         targets: vec![target, control],
+    }
+}
+
+/// Quantum Fourier Transform
+pub fn qft(n: usize) -> Operation {
+    let m = 1 << n;
+    let mut matrix = Array2::zeros((m, m));
+    let w = consts::E.powc(Complex::new(0.0, 2.0 * consts::PI / m as f64));
+    for i in 0..m as i32 {
+        for j in 0..m as i32 {
+            matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (m as f64).sqrt());
+        }
+    }
+    Operation {
+        matrix: matrix,
+        targets: (0..n).collect(),
+    }
+}
+
+/// Create a quantum gate from a function.
+/// The c:th column of the matrix contains f(c) in binary.
+pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Operation {
+    let t_len = targets.len();
+    let len: usize = 1 << t_len;
+    let mut matrix: Array2<Complex<f64>> = Array2::zeros((len, len));
+    // Loop through the columns
+    for c in 0..len {
+        let val = f(c);
+        let res_state = int_to_state(val, len);
+
+        // Set each cell in the column
+        for r in 0..len {
+            matrix[(r, c)] = res_state[(r, 0)];
+        }
+    }
+    Operation {
+        matrix: matrix,
+        targets: targets,
+    }
+}
+
+/// Create a controlled version of an operation.
+/// Doubles the width and height of the matrix, put the original matrix
+/// in the bottom right corner and add an identity matrix in the top left corner.
+pub fn to_controlled(op: Operation, control: usize) -> Operation {
+    let old_sz = 1 << op.arity();
+    let mut matrix = Array2::zeros((2*old_sz, 2*old_sz));
+    for i in 0..old_sz {
+        matrix[(i, i)] = Complex::new(1.0, 0.0);
+    }
+    for i in 0..old_sz {
+        for j in 0..old_sz {
+            matrix[(i + old_sz, j + old_sz)] = op.matrix[(i, j)];
+        }
+    }
+    let mut targets = op.targets();
+
+    // One more target bit: the control.
+    targets.push(control);
+    Operation {
+        matrix: matrix,
+        targets: targets,
     }
 }
 
@@ -238,8 +317,14 @@ pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
     let i = c64::i();
     Operation {
         matrix: array![
-            [(-i * (phi+lambda) / 2.0).exp() * (theta / 2.0).cos(), -(-i * (phi-lambda) / 2.0).exp() * (theta / 2.0).sin()],
-            [( i * (phi-lambda) / 2.0).exp() * (theta / 2.0).sin(),  ( i * (phi+lambda) / 2.0).exp() * (theta / 2.0).cos()],
+            [
+                (-i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos(),
+                -(-i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin()
+            ],
+            [
+                (i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin(),
+                (i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos()
+            ],
         ],
         targets: vec![target],
     }
@@ -247,11 +332,9 @@ pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
 
 #[cfg(test)]
 mod tests {
-    use super::{cnx, OperationTrait};
     use ndarray::Array2;
     use crate::math::c64;
-
-    use super::{cnot, hadamard, identity, not, pauli_y, pauli_z, phase, swap};
+    use super::{cnot, cnx, hadamard, identity, not, OperationTrait, pauli_y, pauli_z, phase, qft, swap};
 
     fn all_ops() -> Vec<Box<dyn OperationTrait>> {
         vec![
@@ -268,6 +351,7 @@ mod tests {
             Box::new(cnx(&[0, 1, 2], 3)),
             Box::new(cnx(&[0, 1, 2, 3], 4)),
             Box::new(cnx(&[0, 1, 2, 3, 4], 5)),
+            Box::new(qft(5)),
         ]
     }
 

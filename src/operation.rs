@@ -1,13 +1,37 @@
-use crate::math::{c64, int_to_state, new_complex, real_arr_to_complex};
+//! The `operation` module provides quantum operation
+//! capabilities to a quantum register using matrix representations.
+//!
+//! # Examples
+//! You can explicitly create an [`Operation`](struct@Operation) by
+//! providing a complex matrix and targets to [`Operation::new()`]:
+//!
+//! ```
+//! use ndarray::{array, Array2};
+//! use quaru::operation::Operation;
+//! use quaru::math::real_arr_to_complex;
+//!
+//! let matrix = real_arr_to_complex(array![[1.0, 0.0], [0.0, 1.0]]);
+//! let targets = vec![0];
+//!
+//! let identity: Option<Operation> = Operation::new(matrix, targets);
+//! ```
+//!
+//! If the custom constructed operation is invalid, [`None`] is returned.
+//!
+//! You can avoid this for already pre-defined operations:
+//!
+//! ```
+//! use quaru::operation::{Operation, identity};
+//!
+//! let identity: Operation = identity(0);
+//! ```
+use crate::math::{c64, int_to_state, real_arr_to_complex, ComplexFloat};
 use ndarray::{array, Array2};
 use std::{f64::consts, vec};
-
 use ndarray::linalg;
-use num::complex::ComplexFloat;
-use num::Complex;
 
 // Naming?
-pub trait OperationTrait {
+pub trait QuantumOperation {
     fn matrix(&self) -> Array2<c64>;
     fn targets(&self) -> Vec<usize>;
     fn arity(&self) -> usize;
@@ -46,7 +70,7 @@ impl Operation {
 }
 
 // TODO: Check if we can return references instead?
-impl OperationTrait for Operation {
+impl QuantumOperation for Operation {
     fn matrix(&self) -> Array2<c64> {
         self.matrix.clone()
     }
@@ -60,6 +84,7 @@ impl OperationTrait for Operation {
     }
 }
 
+/// Returns the identity operation for some `target` qubit.
 pub fn identity(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![[1.0, 0.0], [0.0, 1.0]]),
@@ -67,6 +92,9 @@ pub fn identity(target: usize) -> Operation {
     }
 }
 
+/// Returns the hadamard operation for the given `target` qubit.
+///
+/// Creates an equal superposition of the target qubit's basis states.
 pub fn hadamard(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(consts::FRAC_1_SQRT_2 * array![[1.0, 1.0], [1.0, -1.0]]),
@@ -74,19 +102,24 @@ pub fn hadamard(target: usize) -> Operation {
     }
 }
 
+/// Returns a hadamard transformation for the given qubit `targets`.
 pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
     let mut matrix = hadamard(targets[0]).matrix();
     let len = targets.len();
 
-    for i in 1..len {
-        matrix = linalg::kron(&hadamard(targets[i]).matrix(), &matrix);
+    for t in targets.iter().take(len).skip(1) {
+        matrix = linalg::kron(&hadamard(*t).matrix(), &matrix);
     }
     Operation {
-        matrix: matrix,
-        targets: targets,
+        matrix,
+        targets,
     }
 }
 
+/// Returns the controlled NOT operation based on the given `control` qubit and
+/// `target` qubit.
+///
+/// Flips the target qubit if and only if the control qubit is |1⟩.
 pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![
@@ -99,18 +132,18 @@ pub fn cnot(control: usize, target: usize) -> Operation {
     }
 }
 
-/// Quantum Fourier Transform
+/// Returns the Quantum Fourier Transformation for the given number.
 pub fn qft(n: usize) -> Operation {
     let m = 1 << n;
     let mut matrix = Array2::zeros((m, m));
-    let w = consts::E.powc(Complex::new(0.0, 2.0 * consts::PI / m as f64));
+    let w = consts::E.powc(c64::new(0.0, 2.0 * consts::PI / m as f64));
     for i in 0..m as i32 {
         for j in 0..m as i32 {
             matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (m as f64).sqrt());
         }
     }
     Operation {
-        matrix: matrix,
+        matrix,
         targets: (0..n).collect(),
     }
 }
@@ -120,7 +153,7 @@ pub fn qft(n: usize) -> Operation {
 pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Operation {
     let t_len = targets.len();
     let len: usize = 1 << t_len;
-    let mut matrix: Array2<Complex<f64>> = Array2::zeros((len, len));
+    let mut matrix: Array2<c64> = Array2::zeros((len, len));
     // Loop through the columns
     for c in 0..len {
         let val = f(c);
@@ -132,8 +165,8 @@ pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Opera
         }
     }
     Operation {
-        matrix: matrix,
-        targets: targets,
+        matrix,
+        targets,
     }
 }
 
@@ -144,7 +177,7 @@ pub fn to_controlled(op: Operation, control: usize) -> Operation {
     let old_sz = 1 << op.arity();
     let mut matrix = Array2::zeros((2*old_sz, 2*old_sz));
     for i in 0..old_sz {
-        matrix[(i, i)] = Complex::new(1.0, 0.0);
+        matrix[(i, i)] = c64::new(1.0, 0.0);
     }
     for i in 0..old_sz {
         for j in 0..old_sz {
@@ -156,12 +189,15 @@ pub fn to_controlled(op: Operation, control: usize) -> Operation {
     // One more target bit: the control.
     targets.push(control);
     Operation {
-        matrix: matrix,
-        targets: targets,
+        matrix,
+        targets,
     }
 }
 
-pub fn swap(target1: usize, target2: usize) -> Operation {
+/// Returns the swap operation for the given target qubits.
+///
+/// Swaps two qubits in the register.
+pub fn swap(target_1: usize, target_2: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![
             [1.0, 0.0, 0.0, 0.0],
@@ -169,20 +205,29 @@ pub fn swap(target1: usize, target2: usize) -> Operation {
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0]
         ]),
-        targets: vec![target1, target2],
+        targets: vec![target_1, target_2],
     }
 }
 
+/// Returns the phase operation for the given `target` qubit.
+///
+/// Maps the basis states |0⟩ -> |0⟩ and |1⟩ -> i|1⟩, modifying the
+/// phase of the quantum state.
 pub fn phase(target: usize) -> Operation {
     Operation {
         matrix: array![
-            [new_complex(1.0, 0.0), new_complex(0.0, 0.0)],
-            [new_complex(0.0, 0.0), new_complex(0.0, 1.0)]
+            [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 1.0)]
         ],
         targets: vec![target],
     }
 }
 
+/// Returns the NOT operation for the given `target` qubit.
+///
+/// Maps the basis states |0⟩ -> |1⟩ and |1⟩ -> |0⟩.
+///
+/// Also referred to as the Pauli-X operation.
 pub fn not(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![[0.0, 1.0], [1.0, 0.0]]),
@@ -190,16 +235,22 @@ pub fn not(target: usize) -> Operation {
     }
 }
 
+/// Returns the Pauli-Y operation for a given `target` qubit.
+///
+/// Maps the basis states |0⟩ -> i|1⟩ and |1⟩ -> -i|0⟩.
 pub fn pauli_y(target: usize) -> Operation {
     Operation {
         matrix: array![
-            [new_complex(0.0, 0.0), new_complex(0.0, -1.0)],
-            [new_complex(0.0, 1.0), new_complex(0.0, 0.0)]
+            [c64::new(0.0, 0.0), c64::new(0.0, -1.0)],
+            [c64::new(0.0, 1.0), c64::new(0.0, 0.0)]
         ],
         targets: vec![target],
     }
 }
 
+/// Returns the Pauli-Z operation for a given `target` qubit.
+///
+/// Maps the basis states |0⟩ -> |0⟩ and |1⟩ -> -|1⟩
 pub fn pauli_z(target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![[1.0, 0.0], [0.0, -1.0]]),
@@ -207,9 +258,12 @@ pub fn pauli_z(target: usize) -> Operation {
     }
 }
 
-pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
+/// Returns the controlled NOT operation for the given number of `control` qubits on the `target` qubit.
+///
+/// Flips the target qubit if and only if controls are |1⟩.
+pub fn cnx(controls: &[usize], target: usize) -> Operation {
     let mut targets = vec![target];
-    targets.append(&mut controls.clone());
+    targets.append(&mut controls.to_owned());
 
     // Calculates the size of the matrix (2^n) where n is the number of target + control qubits
     let n: usize = 2_usize.pow(targets.len() as u32);
@@ -231,9 +285,14 @@ pub fn toffoli(controls: &Vec<usize>, target: usize) -> Operation {
     }
 }
 
-pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
+/// Returns a controlled Pauli-Z operation for the given number of `control` qubits on the `target`
+/// qubit.
+///
+/// Maps the basis states of the target to |0⟩ -> |0⟩ and |1⟩ -> -|1⟩ if and only if the controls
+/// are |1⟩.
+pub fn cnz(controls: &[usize], target: usize) -> Operation {
     let mut targets = vec![target];
-    targets.append(&mut controls.clone());
+    targets.append(&mut controls.to_owned());
 
     let n: usize = 2_usize.pow(targets.len() as u32);
 
@@ -249,6 +308,7 @@ pub fn cz(controls: &Vec<usize>, target: usize) -> Operation {
     }
 }
 
+/// Returns a universal operation for the given angles on the `target` qubit.
 pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
     let theta = c64::from(theta);
     let phi = c64::from(phi);
@@ -271,13 +331,11 @@ pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
 
 #[cfg(test)]
 mod tests {
-    use super::{toffoli, OperationTrait};
-    use crate::math::c64;
     use ndarray::Array2;
+    use crate::math::c64;
+    use super::{cnot, cnx, hadamard, identity, not, QuantumOperation, pauli_y, pauli_z, phase, qft, swap};
 
-    use super::{cnot, hadamard, identity, not, pauli_y, pauli_z, phase, qft, swap};
-
-    fn all_ops() -> Vec<Box<dyn OperationTrait>> {
+    fn all_ops() -> Vec<Box<dyn QuantumOperation>> {
         vec![
             Box::new(identity(0)),
             Box::new(hadamard(0)),
@@ -287,12 +345,12 @@ mod tests {
             Box::new(not(0)),
             Box::new(pauli_y(0)),
             Box::new(pauli_z(0)),
+            Box::new(cnx(&[0], 1)),
+            Box::new(cnx(&[0, 1], 2)),
+            Box::new(cnx(&[0, 1, 2], 3)),
+            Box::new(cnx(&[0, 1, 2, 3], 4)),
+            Box::new(cnx(&[0, 1, 2, 3, 4], 5)),
             Box::new(qft(5)),
-            Box::new(toffoli(&vec![0], 1)),
-            Box::new(toffoli(&vec![0, 1], 2)),
-            Box::new(toffoli(&vec![0, 1, 2], 3)),
-            Box::new(toffoli(&vec![0, 1, 2, 3], 4)),
-            Box::new(toffoli(&vec![0, 1, 2, 3, 4], 5)),
         ]
     }
 
@@ -319,7 +377,7 @@ mod tests {
 
     #[test]
     fn toffoli2_equals_cnot() {
-        let toffoli_generated_cnot = toffoli(&vec![0], 1);
+        let toffoli_generated_cnot = cnx(&[0], 1);
         assert!(matrix_is_equal(
             toffoli_generated_cnot.matrix(),
             cnot(0, 1).matrix(),

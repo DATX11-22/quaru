@@ -1,5 +1,9 @@
+//! The `math` module includes functions for using more easily using complex numbers.
+
 use ndarray::{array, Array2};
 use num::Complex;
+pub use num::complex::ComplexFloat;
+
 
 /// Given a boolean value, returns the qubit vector representation of
 /// that value.
@@ -37,12 +41,6 @@ pub fn real_to_complex(n: f64) -> c64 {
     Complex::new(n, 0.0)
 }
 
-/// Given a float `re` and `im` returns a complex number with real part `re` and imaginary part
-/// `im`.
-pub fn new_complex(re: f64, im: f64) -> c64 {
-    Complex::new(re, im)
-}
-
 /// Create state from the integer val.
 pub fn int_to_state(val: usize, len: usize) -> Array2<Complex<f64>> {
     let mut state: Array2<Complex<f64>> = Array2::zeros((len, 1));
@@ -54,7 +52,7 @@ pub fn int_to_state(val: usize, len: usize) -> Array2<Complex<f64>> {
 /// Given fraction m/n and a positive integer l, returns integers r and s such that
 /// r/s is the closest fraction to m/n with denominator bounded by l.
 /// Uses the continued fraction algorithm.
-/// Adapted from python implementation in https://github.com/python/cpython/issues/95723
+/// Adapted from python implementation in <https://github.com/python/cpython/issues/95723>
 pub fn limit_denominator(m: u32, n: u32, l: u32) -> (u32, u32) {
     let (mut a, mut b, mut p, mut q, mut r, mut s, mut v) = (n, m % n, 1, 0, m / n, 1, 1);
     while 0 < b && q + a / b * s <= l {
@@ -81,7 +79,7 @@ pub fn modpow(mut base: u32, mut exponent: u32, modulus: u32) -> u32 {
         // Double the number of multiplications.
         base = base * base % modulus;
     }
-    return result;
+    result
 }
 
 /// A 64-bit complex float.

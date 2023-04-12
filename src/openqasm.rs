@@ -45,7 +45,7 @@ pub enum OpenQASMError {
 /// ```
 pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
     let program = openqasm::parse_openqasm(openqasm_file)
-        .map_err(|e| OpenQASMError::OpenQASMParseError(e))?;
+        .map_err(OpenQASMError::OpenQASMParseError)?;
 
     // Initializes the registers defined in the openqasm file. All registers are initialized
     // to 0.
@@ -150,7 +150,7 @@ fn creg_to_u32(creg: &Vec<bool>) -> u32 {
     let mut res = 0;
 
     for bit in creg.iter().rev() {
-        res = res << 1;
+        res <<= 1;
         if *bit {
             res |= 1;
         }

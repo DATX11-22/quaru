@@ -1,16 +1,21 @@
+//! The `register` module provides quantum register functionality.
 use crate::{
-    math,
-    operation::{Operation, OperationTrait},
+    math::{self, c64},
+    operation::{Operation, QuantumOperation},
 };
 use ndarray::{array, linalg, Array2};
 use rand::prelude::*;
 
+/// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
+    /// Occurs when target is out of range or duplicate targets are given.
     InvalidTarget(usize),
+    /// Occurs when an operation with invalid dimensions is given.
     InvalidDimensions(usize, usize),
+    /// Occurs when an operation with an invalid arity is given.
     InvalidArity(usize),
-    NoTargets,
+    /// Occurs when a qubit is considered incorrect.
     InvalidQubit(usize),
 }
 
@@ -35,7 +40,7 @@ impl Register {
     /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
-        let base_state = array![[math::new_complex(1.0, 0.0)]];
+        let base_state = array![[math::c64::new(1.0, 0.0)]];
 
         // Creates state by translating bool to qubit
         // then uses qubits in tesnor product to create state
@@ -83,17 +88,17 @@ impl Register {
             }
         }
 
-        let base_state = array![[math::new_complex(1.0, 0.0)]];
+        let base_state = array![[math::c64::new(1.0, 0.0)]];
 
         //create state
         let state_matrix = input_bits
             .iter()
-            .fold(base_state, |a, b| linalg::kron(&b, &a));
+            .fold(base_state, |a, b| linalg::kron(b, &a));
 
-        return Ok(Self {
+        Ok(Self {
             state: state_matrix,
             size: input_bits.len(),
-        });
+        })
     }
 
     /// Checks if input qubit has total probability 1
@@ -106,20 +111,18 @@ impl Register {
             total_prob += values.norm_sqr();
         }
         //Chech if total prob is 1
-        if total_prob.abs() < 0.000001 {
-            return true;
-        }
-        return false;
+        total_prob.abs() < 0.000001 
     }
 
     /// Checks that input qubit is correct
     /// Outputs false if the length of input is not 2
     /// otherwise outputs return value of is_one
-    pub fn is_qubit(qubit: &Array2<math::c64>) -> bool {
+    pub fn is_qubit(qubit: &Array2<c64>) -> bool {
         if qubit.len() == 2 {
-            return Self::is_one(qubit);
+            Self::is_one(qubit)
+        } else {
+            false
         }
-        return false;
     }
 
     /// Applys a quantum operation to the current state
@@ -165,9 +168,9 @@ impl Register {
             // Calculate the index j so that self.state[j] corresponds to permuted_state[i]
             // This is done by moving each bit in the number i according to perm
             let mut j: usize = 0;
-            for k in 0..self.size {
+            for (k, v) in perm.iter().enumerate().take(self.size) {
                 // Copy the kth bit in i to the perm[k]th bit in j
-                j |= ((i >> k) & 1) << perm[k];
+                j |= ((i >> k) & 1) << v;
             }
 
             permuted_state[(i, 0)] = self.state[(j, 0)];
@@ -182,8 +185,8 @@ impl Register {
         // Permute back, similar to above but backwards (perm[k] -> k instead of the other way around)
         for i in 0..permuted_state.len() {
             let mut j: usize = 0;
-            for k in 0..self.size {
-                j |= ((i >> perm[k]) & 1) << k;
+            for (k, v) in perm.iter().enumerate().take(self.size) {
+                j |= ((i >> v) & 1) << k;
             }
             self.state[(i, 0)] = permuted_state[(j, 0)];
         }
@@ -212,7 +215,7 @@ impl Register {
             return Err(OperationError::InvalidArity(operation.arity()));
         }
 
-        let matrix = (0..self.size).fold(array![[math::new_complex(1.0, 0.0)]], |acc, _| {
+        let matrix = (0..self.size).fold(array![[math::c64::new(1.0, 0.0)]], |acc, _| {
             linalg::kron(&acc, &operation.matrix())
         });
 
@@ -267,7 +270,7 @@ impl Register {
             if ((i >> target) & 1) != res as usize {
                 // In state i the target bit != the result of measuring that bit.
                 // The probability of reaching this state is therefore 0.
-                *s = math::new_complex(0.0, 0.0);
+                *s = math::c64::new(0.0, 0.0);
             } else {
                 // Because we have set some probabilities to 0 the state vector no longer
                 // upholds the criteria that the probabilities sum to 1. So we have to normalize it.
@@ -314,7 +317,7 @@ impl PartialEq for Register {
 // Should probably be moved somewhere else
 /// Returns a value which exists multiple times in the input vector, or None
 /// if no such element exists
-fn get_duplicate<T: Ord + Copy + Clone>(vec: &Vec<T>) -> Option<T> {
+fn get_duplicate<T: Ord + Copy + Clone>(vec: &[T]) -> Option<T> {
     let mut vec_cpy = vec.to_vec();
     vec_cpy.sort_unstable();
 

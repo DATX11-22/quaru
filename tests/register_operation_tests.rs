@@ -6,6 +6,7 @@ use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quaru::operation::{self, toffoli, Operation};
 use quaru::register::Register;
+use num::Complex;
 
 #[test]
 // #[ignore = "Wait for feature confirmation"]
@@ -15,6 +16,21 @@ fn measure_on_zero_state_gives_false() {
     let expected = false;
 
     assert_eq!(input, expected);
+}
+
+/// Tests that creating a state |0>, |1>, 1/sqrt(2)|0> + 1/sqrt(2)|1>
+/// is equal to creating a state |0>, |1>, |0> and applying a hadamard
+/// gate to qubit 2
+#[test]
+fn new_qubits_test() {
+    let reg_qubits = Register::new_qubits(&[
+        ndarray::array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
+        ndarray::array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
+        ndarray::array![[Complex::new(1.0/(2.0_f64).sqrt(), 0.0)], [Complex::new(1.0/(2.0_f64).sqrt(), 0.0)]]
+    ]);
+    let mut reg = Register::new(&[false, true, false]);
+    reg.apply(&operation::hadamard(2));
+    assert_eq!(reg, reg_qubits); 
 }
 
 proptest!(
@@ -86,7 +102,7 @@ proptest!(
 
     #[test]
     // #[ignore = "Indexing issue in register, is weird"]
-    fn first_bell_state_measure_equal(i in 0..5 as usize) {
+    fn first_bell_state_measure_equal(i in 0..5_usize) {
         let mut reg = Register::new(&[false; 6]);
 
         let hadamard = operation::hadamard(i);
@@ -125,7 +141,7 @@ proptest!(
     }
 
     #[test]
-    fn swap_single_true_qubit(i in 0..5 as usize, j in 0..5 as usize){
+    fn swap_single_true_qubit(i in 0..5_usize, j in 0..5_usize){
         // qubit i is 1 and all other are 0
         // qubit i and j are swapped
         // qubit j should now be the only 1
@@ -143,7 +159,7 @@ proptest!(
     }
 
     #[test]
-    fn toffoli_test(n in 2..=6 as usize,
+    fn toffoli_test(n in 2..=6_usize,
         s1 in any::<bool>(),
         s2 in any::<bool>(),
         s3 in any::<bool>(),
@@ -160,13 +176,31 @@ proptest!(
         let control_measure = (0..n-1).all(|i| reg.measure(i));
         let res = if control_measure {
             let target_measure = reg.measure(n-1);
-            target_measure == !init_target_value
+            target_measure != init_target_value
         } else {
             let target_measure = reg.measure(n-1);
             target_measure == init_target_value
         };
 
         assert!(res);
+    }
+
+    #[test]
+    fn apply_all_test(n in 2..=6_usize) {
+        let mut reg1 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
+        let mut reg2 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
+        
+        (0..reg1.size()).for_each(|i| { reg1.apply(&operation::hadamard(i)); });
+        reg2.apply_all(&operation::hadamard(0));
+
+        assert!(reg1 == reg2)
+    }
+
+    #[test]
+    #[should_panic]
+    fn apply_all_panics_if_not_unary(op in BinaryOperation::arbitrary_with(0..6)) {
+        let mut reg = Register::new(&[false; 6]);
+        reg.apply_all(&op.0);
     }
 
 );

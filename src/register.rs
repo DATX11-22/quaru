@@ -3,14 +3,15 @@ use crate::{
     operation::{Operation, OperationTrait},
 };
 use ndarray::{array, linalg, Array2};
-use num::Complex;
 use rand::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
     InvalidTarget(usize),
     InvalidDimensions(usize, usize),
+    InvalidArity(usize),
     NoTargets,
+    InvalidQubit(usize),
 }
 
 /// A quantum register containing N qubits.
@@ -26,7 +27,7 @@ pub struct Register {
     ///
     /// The state vector is [a, b, c, ...]<sup>T</sup>, where |state_i|<sup>2</sup> represents the probability
     /// that the system will collapse into the state described by the ith basis vector.
-    pub state: Array2<Complex<f64>>, // Should not be pub (it is pub now for testing purpouses)
+    pub state: Array2<math::c64>, // Should not be pub (it is pub now for testing purpouses)
     size: usize,
 }
 
@@ -34,7 +35,7 @@ impl Register {
     /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
-        let base_state = array![[Complex::new(1.0, 0.0)]];
+        let base_state = array![[math::new_complex(1.0, 0.0)]];
 
         // Creates state by translating bool to qubit
         // then uses qubits in tesnor product to create state
@@ -48,6 +49,72 @@ impl Register {
             size: input_bits.len(),
         }
     }
+
+    /// Creates a new state with a list of 2 dimensional arrays
+    /// of complex numbers. 
+    /// 
+    /// Input qubits as [array![[Complex::new(1.0, 0.0)], array![Complex::new(0.0, 0.0)]]]
+    /// Two qubits looks like this: [array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]], 
+    ///                              array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]]]
+    /// 
+    /// **Panics** if 2 dimensional array doesn't contain 2 elements
+    /// or if their probability doesn't add to 1
+    pub fn new_qubits(input_bits: &[Array2<math::c64>]) -> Self {
+        Self::try_new_qubits(input_bits).expect("Incorrect input qubits")
+    }
+
+    /// Tries to create a new state from list of qubits
+    /// Returns a Result which is either a register or an 
+    /// error if input was not correct qubits
+    pub fn try_new_qubits(input_bits: &[Array2<math::c64>]) -> Result<Self, OperationError> {
+        //check if input is correct
+        let res = input_bits
+            .iter()
+            .map(Self::is_qubit);
+        //check if everything was correct otherwise panic
+        for (i, bool) in res.enumerate() {
+            if !bool {
+                return Err(OperationError::InvalidQubit(i));
+            }
+        }
+
+        let base_state = array![[math::new_complex(1.0, 0.0)]];
+        
+        //create state
+        let state_matrix = input_bits
+            .iter()
+            .fold(base_state, |a, b| linalg::kron(&b, &a));
+
+        return Ok(Self {
+            state: state_matrix,
+            size: input_bits.len(),
+        });
+    }
+
+    /// Checks if input qubit has total probability 1
+    /// Outputs true if total probability is one and 
+    /// false if total probability is not one
+    pub fn is_one(qubit: &Array2<math::c64>) -> bool {
+        let mut total_prob = -1.0;
+        //Create total prob by squaring individual values
+        for values in qubit {
+            total_prob += values.norm_sqr();
+        }
+        //Chech if total prob is 1
+        if total_prob.abs() < 0.000001 {
+            return true;
+        }
+        return false;
+    }
+
+    /// Checks that input qubit is correct
+    /// Outputs false if the length of input is not 2
+    /// otherwise outputs return value of is_one
+    pub fn is_qubit(qubit: &Array2<math::c64>) -> bool {
+        if qubit.len() == 2 { return Self::is_one(qubit); }
+        return false;
+    }
+
     /// Applys a quantum operation to the current state
     ///
     /// Input a state and an operation. Outputs the new state
@@ -70,7 +137,7 @@ impl Register {
         }
         for target in op.targets() {
             if target >= self.size() {
-                return Err(OperationError::InvalidTarget(target))
+                return Err(OperationError::InvalidTarget(target));
             }
         }
 
@@ -114,7 +181,38 @@ impl Register {
             self.state[(i, 0)] = permuted_state[(j, 0)];
         }
 
-        return Ok(self);
+        Ok(self)
+    }
+
+    /// Apply a unary operation on all qubits.
+    /// Returns a mutable reference to self.
+    ///
+    /// Input a unary operation.
+    ///
+    /// ***Panics*** if the arity of the operation is not 1.
+    /// I.e. if the operation is not unary.
+    pub fn apply_all(&mut self, operation: &Operation) -> &mut Self {
+        self.try_apply_all(operation)
+            .expect("Could not apply operation")
+    }
+
+    /// Tries to apply a unary operation on all qubits.
+    /// Returns a Result with either a mutable reference to self or an error
+    /// if the operation given is not unary.
+    pub fn try_apply_all(&mut self, operation: &Operation) -> Result<&mut Self, OperationError> {
+        // Return immediately if arity is not unary
+        if operation.arity() != 1 {
+            return Err(OperationError::InvalidArity(operation.arity()));
+        }
+
+        let matrix = (0..self.size).fold(array![[math::new_complex(1.0, 0.0)]], |acc, _| {
+            linalg::kron(&acc, &operation.matrix())
+        });
+
+        // We dont need to do any swapping or target matching since the dimensions should always match if we
+        // kron a unary operation reg.size() times.
+        self.state = matrix.dot(&self.state);
+        Ok(self)
     }
 
     /// Measure a quantum bit in the register and returns its measured value.
@@ -129,12 +227,13 @@ impl Register {
         self.try_measure(target).expect("Could not measure bit")
     }
 
-
     /// Same as measure, except it returns an error instead of panicing when given
     /// invalid arguments
     pub fn try_measure(&mut self, target: usize) -> Result<bool, OperationError> {
         // Validate arguments
-        if target >= self.size() { return Err(OperationError::InvalidTarget(target)); }
+        if target >= self.size() {
+            return Err(OperationError::InvalidTarget(target));
+        }
 
         let mut prob_1 = 0.0; // The probability of collapsing into a state where the target bit = 1
         let mut prob_0 = 0.0; // The probability of collapsing into a state where the target bit = 0
@@ -161,7 +260,7 @@ impl Register {
             if ((i >> target) & 1) != res as usize {
                 // In state i the target bit != the result of measuring that bit.
                 // The probability of reaching this state is therefore 0.
-                *s = Complex::new(0.0, 0.0);
+                *s = math::new_complex(0.0, 0.0);
             } else {
                 // Because we have set some probabilities to 0 the state vector no longer
                 // upholds the criteria that the probabilities sum to 1. So we have to normalize it.
@@ -189,7 +288,7 @@ impl Register {
     pub fn print_state(&self) {
         let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
-            println!("{:0n$b}: {}", i, s);
+            println!("{i:0n$b}: {s}");
         }
     }
 
@@ -199,6 +298,7 @@ impl Register {
     }
     
 }
+
 impl PartialEq for Register {
     fn eq(&self, other: &Self) -> bool {
         (&self.state - &other.state).iter().all(|e| e.norm() < 1e-8)
@@ -231,8 +331,8 @@ mod tests {
     fn invalid_target_returns_error() {
         let mut register = Register::new(&[false, false]);
         let res1 = register.try_apply(&operation::cnot(1, 2)).unwrap_err(); // 2 is out of of bounds -> Error
-        let _    = register.try_apply(&operation::cnot(1, 1)).unwrap_err(); // 1 == 1 -> Error
-        let _    = register.try_apply(&operation::cnot(0, 1)).unwrap(); // Valid targets -> No error
+        let _ = register.try_apply(&operation::cnot(1, 1)).unwrap_err(); // 1 == 1 -> Error
+        let _ = register.try_apply(&operation::cnot(0, 1)).unwrap(); // Valid targets -> No error
 
         assert_eq!(res1, OperationError::InvalidTarget(2));
     }

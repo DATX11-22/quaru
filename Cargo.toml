@@ -24,3 +24,7 @@ blas = ["ndarray/blas"]
 
 [dev-dependencies]
 proptest = "1.1.0"
+
+[[example]]
+name = "quantum_teleportation"
+test = true

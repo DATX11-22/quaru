@@ -6,9 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ndarray = { version = "0.15.0"}
+ndarray = { version = "0.15.6"}
 num = "0.4.0"
 rand = "0.8.5"
+gcd = "2.3.0"
+stopwatch = "0.0.7"
+colored = "2.0.0"
+log = "0.4.17"
+env_logger = "0.10.0"
+
 inquire = "0.5.3"
 clap = { version = "4.1.6", features = ["derive"] }
 openqasm-parser = "1.0.0"
@@ -18,6 +24,3 @@ blas = ["ndarray/blas"]
 
 [dev-dependencies]
 proptest = "1.1.0"
-
-
-

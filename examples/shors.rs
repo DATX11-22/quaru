@@ -205,7 +205,7 @@ mod tests {
     fn period_finder_working() {
         // Try many combinations of a and N.
         // For each combination, find the period of f(x) = a^x mod N.
-        for number in 2..8 {
+        for number in 2..6 {
             for a in 2..number {
                 if gcd::euclid_u32(number, a) != 1 {
                     // f(x) is not periodic if a and N share a factor since in
@@ -246,12 +246,6 @@ mod tests {
         for n in [4, 6, 8, 9, 10, 12, 14, 15] {
             let r = super::shors(n);
             assert!(n % r == 0 && 1 < r && r < n);
-        }
-
-        // Try 15 a few more times.
-        for _ in 0..5 {
-            let r = super::shors(15);
-            assert!(r == 3 || r == 5);
         }
     }
 

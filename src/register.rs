@@ -1,7 +1,7 @@
 //! The `register` module provides quantum register functionality.
 use crate::{
     math::{self, c64},
-    operation::{Operation, OperationTrait},
+    operation::{Operation, QuantumOperation},
 };
 use ndarray::{array, linalg, Array2};
 use rand::prelude::*;
@@ -15,7 +15,7 @@ pub enum OperationError {
     InvalidDimensions(usize, usize),
     /// Occurs when an operation with an invalid arity is given.
     InvalidArity(usize),
-    NoTargets,
+    /// Occurs when a qubit is considered incorrect.
     InvalidQubit(usize),
 }
 

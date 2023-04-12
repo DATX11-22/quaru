@@ -25,14 +25,13 @@
 //!
 //! let identity: Operation = identity(0);
 //! ```
-use crate::math::{c64, int_to_state, real_arr_to_complex};
+use crate::math::{c64, int_to_state, real_arr_to_complex, ComplexFloat};
 use ndarray::{array, Array2};
-use num::complex::ComplexFloat;
 use std::{f64::consts, vec};
 use ndarray::linalg;
 
 // Naming?
-pub trait OperationTrait {
+pub trait QuantumOperation {
     fn matrix(&self) -> Array2<c64>;
     fn targets(&self) -> Vec<usize>;
     fn arity(&self) -> usize;
@@ -71,7 +70,7 @@ impl Operation {
 }
 
 // TODO: Check if we can return references instead?
-impl OperationTrait for Operation {
+impl QuantumOperation for Operation {
     fn matrix(&self) -> Array2<c64> {
         self.matrix.clone()
     }
@@ -103,10 +102,7 @@ pub fn hadamard(target: usize) -> Operation {
     }
 }
 
-/// Returns the controlled NOT operation based on the given `control` qubit and
-/// `target` qubit.
-///
-/// Flips the target qubit if and only if the control qubit is |1⟩.
+/// Returns a hadamard transformation for the given qubit `targets`.
 pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
     let mut matrix = hadamard(targets[0]).matrix();
     let len = targets.len();
@@ -120,6 +116,10 @@ pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
     }
 }
 
+/// Returns the controlled NOT operation based on the given `control` qubit and
+/// `target` qubit.
+///
+/// Flips the target qubit if and only if the control qubit is |1⟩.
 pub fn cnot(control: usize, target: usize) -> Operation {
     Operation {
         matrix: real_arr_to_complex(array![
@@ -132,7 +132,7 @@ pub fn cnot(control: usize, target: usize) -> Operation {
     }
 }
 
-/// Quantum Fourier Transform
+/// Returns the Quantum Fourier Transformation for the given number.
 pub fn qft(n: usize) -> Operation {
     let m = 1 << n;
     let mut matrix = Array2::zeros((m, m));
@@ -308,6 +308,7 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
     }
 }
 
+/// Returns a universal operation for the given angles on the `target` qubit.
 pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
     let theta = c64::from(theta);
     let phi = c64::from(phi);
@@ -332,9 +333,9 @@ pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
 mod tests {
     use ndarray::Array2;
     use crate::math::c64;
-    use super::{cnot, cnx, hadamard, identity, not, OperationTrait, pauli_y, pauli_z, phase, qft, swap};
+    use super::{cnot, cnx, hadamard, identity, not, QuantumOperation, pauli_y, pauli_z, phase, qft, swap};
 
-    fn all_ops() -> Vec<Box<dyn OperationTrait>> {
+    fn all_ops() -> Vec<Box<dyn QuantumOperation>> {
         vec![
             Box::new(identity(0)),
             Box::new(hadamard(0)),

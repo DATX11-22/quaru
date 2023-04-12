@@ -2,6 +2,7 @@
 
 use ndarray::{array, Array2};
 use num::Complex;
+pub use num::complex::ComplexFloat;
 
 
 /// Given a boolean value, returns the qubit vector representation of
@@ -51,7 +52,7 @@ pub fn int_to_state(val: usize, len: usize) -> Array2<Complex<f64>> {
 /// Given fraction m/n and a positive integer l, returns integers r and s such that
 /// r/s is the closest fraction to m/n with denominator bounded by l.
 /// Uses the continued fraction algorithm.
-/// Adapted from python implementation in https://github.com/python/cpython/issues/95723
+/// Adapted from python implementation in <https://github.com/python/cpython/issues/95723>
 pub fn limit_denominator(m: u32, n: u32, l: u32) -> (u32, u32) {
     let (mut a, mut b, mut p, mut q, mut r, mut s, mut v) = (n, m % n, 1, 0, m / n, 1, 1);
     while 0 < b && q + a / b * s <= l {

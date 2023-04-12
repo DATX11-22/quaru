@@ -11,16 +11,11 @@ num = "0.4.0"
 rand = "0.8.5"
 inquire = "0.5.3"
 clap = { version = "4.1.6", features = ["derive"] }
-stopwatch = "0.0.7"
-
 
 [features]
-
-blas = ["ndarray/blas", "blas-src/openblas", "openblas-src"]
-
+blas = ["ndarray/blas"]
 
 [dev-dependencies]
-
 proptest = "1.1.0"
 
 

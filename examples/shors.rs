@@ -16,7 +16,7 @@ struct Args {
     number: u32,
 
     /// Number of times to run the algorithm
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(long, default_value_t = 1)]
     n_times: u32,
 }
 

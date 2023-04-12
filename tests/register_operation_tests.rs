@@ -1,13 +1,13 @@
 extern crate proptest;
 use std::ops::Range;
 
+use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
+use num::Complex;
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
+use quaru::math::{equal_qubits, to_qbit_vector};
 use quaru::operation::{self, toffoli, Operation};
 use quaru::register::Register;
-use quaru::math::{to_qbit_vector, equal_qubits};
-use num::Complex;
-use ndarray::{array, ArrayBase, Dim, OwnedRepr, Array2, linalg};
 use std::f64::consts;
 
 #[test]
@@ -27,11 +27,14 @@ fn new_qubits_test() {
     let reg_qubits = Register::new_qubits(&[
         ndarray::array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
         ndarray::array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
-        ndarray::array![[Complex::new(1.0/(2.0_f64).sqrt(), 0.0)], [Complex::new(1.0/(2.0_f64).sqrt(), 0.0)]]
+        ndarray::array![
+            [Complex::new(1.0 / (2.0_f64).sqrt(), 0.0)],
+            [Complex::new(1.0 / (2.0_f64).sqrt(), 0.0)]
+        ],
     ]);
     let mut reg = Register::new(&[false, true, false]);
     reg.apply(&operation::hadamard(2));
-    assert_eq!(reg, reg_qubits); 
+    assert_eq!(reg, reg_qubits);
 }
 
 proptest!(
@@ -130,7 +133,6 @@ proptest!(
         reg.apply(&hadamard);
         reg.apply(&cnot);
 
-        // reg.print_probabilities();
         // this should measure index i and i+1
         assert_eq!(reg.measure(i), reg.measure(i+1));
     }
@@ -207,7 +209,7 @@ proptest!(
     fn apply_all_test(n in 2..=6_usize) {
         let mut reg1 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
         let mut reg2 = Register::new(&(0..n).map(|_| false).collect::<Vec<bool>>());
-        
+
         (0..reg1.size()).for_each(|i| { reg1.apply(&operation::hadamard(i)); });
         reg2.apply_all(&operation::hadamard(0));
 

@@ -3,6 +3,7 @@
 use ndarray::{array, Array2};
 use num::Complex;
 
+
 /// Given a boolean value, returns the qubit vector representation of
 /// that value.
 ///
@@ -37,12 +38,6 @@ pub fn real_arr_to_complex(matrix: Array2<f64>) -> Array2<c64> {
 /// imaginary part 0.
 pub fn real_to_complex(n: f64) -> c64 {
     Complex::new(n, 0.0)
-}
-
-/// Given a float `re` and `im` returns a complex number with real part `re` and imaginary part
-/// `im`.
-pub fn new_complex(re: f64, im: f64) -> c64 {
-    Complex::new(re, im)
 }
 
 /// Create state from the integer val.

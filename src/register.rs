@@ -40,7 +40,7 @@ impl Register {
     /// Creates a new state with an array of booleans with size N
     pub fn new(input_bits: &[bool]) -> Self {
         // Complex 1 by 1 identity matrix
-        let base_state = array![[math::new_complex(1.0, 0.0)]];
+        let base_state = array![[math::c64::new(1.0, 0.0)]];
 
         // Creates state by translating bool to qubit
         // then uses qubits in tesnor product to create state
@@ -88,7 +88,7 @@ impl Register {
             }
         }
 
-        let base_state = array![[math::new_complex(1.0, 0.0)]];
+        let base_state = array![[math::c64::new(1.0, 0.0)]];
 
         //create state
         let state_matrix = input_bits
@@ -215,7 +215,7 @@ impl Register {
             return Err(OperationError::InvalidArity(operation.arity()));
         }
 
-        let matrix = (0..self.size).fold(array![[math::new_complex(1.0, 0.0)]], |acc, _| {
+        let matrix = (0..self.size).fold(array![[math::c64::new(1.0, 0.0)]], |acc, _| {
             linalg::kron(&acc, &operation.matrix())
         });
 
@@ -270,7 +270,7 @@ impl Register {
             if ((i >> target) & 1) != res as usize {
                 // In state i the target bit != the result of measuring that bit.
                 // The probability of reaching this state is therefore 0.
-                *s = math::new_complex(0.0, 0.0);
+                *s = math::c64::new(0.0, 0.0);
             } else {
                 // Because we have set some probabilities to 0 the state vector no longer
                 // upholds the criteria that the probabilities sum to 1. So we have to normalize it.

@@ -25,13 +25,11 @@
 //!
 //! let identity: Operation = identity(0);
 //! ```
-use crate::math::{c64, int_to_state, new_complex, real_arr_to_complex};
+use crate::math::{c64, int_to_state, real_arr_to_complex};
 use ndarray::{array, Array2};
-use std::{f64::consts, vec};
-
-use ndarray::linalg;
 use num::complex::ComplexFloat;
-use num::Complex;
+use std::{f64::consts, vec};
+use ndarray::linalg;
 
 // Naming?
 pub trait OperationTrait {
@@ -138,7 +136,7 @@ pub fn cnot(control: usize, target: usize) -> Operation {
 pub fn qft(n: usize) -> Operation {
     let m = 1 << n;
     let mut matrix = Array2::zeros((m, m));
-    let w = consts::E.powc(Complex::new(0.0, 2.0 * consts::PI / m as f64));
+    let w = consts::E.powc(c64::new(0.0, 2.0 * consts::PI / m as f64));
     for i in 0..m as i32 {
         for j in 0..m as i32 {
             matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (m as f64).sqrt());
@@ -155,7 +153,7 @@ pub fn qft(n: usize) -> Operation {
 pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Operation {
     let t_len = targets.len();
     let len: usize = 1 << t_len;
-    let mut matrix: Array2<Complex<f64>> = Array2::zeros((len, len));
+    let mut matrix: Array2<c64> = Array2::zeros((len, len));
     // Loop through the columns
     for c in 0..len {
         let val = f(c);
@@ -179,7 +177,7 @@ pub fn to_controlled(op: Operation, control: usize) -> Operation {
     let old_sz = 1 << op.arity();
     let mut matrix = Array2::zeros((2*old_sz, 2*old_sz));
     for i in 0..old_sz {
-        matrix[(i, i)] = Complex::new(1.0, 0.0);
+        matrix[(i, i)] = c64::new(1.0, 0.0);
     }
     for i in 0..old_sz {
         for j in 0..old_sz {
@@ -218,8 +216,8 @@ pub fn swap(target_1: usize, target_2: usize) -> Operation {
 pub fn phase(target: usize) -> Operation {
     Operation {
         matrix: array![
-            [new_complex(1.0, 0.0), new_complex(0.0, 0.0)],
-            [new_complex(0.0, 0.0), new_complex(0.0, 1.0)]
+            [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 1.0)]
         ],
         targets: vec![target],
     }
@@ -243,8 +241,8 @@ pub fn not(target: usize) -> Operation {
 pub fn pauli_y(target: usize) -> Operation {
     Operation {
         matrix: array![
-            [new_complex(0.0, 0.0), new_complex(0.0, -1.0)],
-            [new_complex(0.0, 1.0), new_complex(0.0, 0.0)]
+            [c64::new(0.0, 0.0), c64::new(0.0, -1.0)],
+            [c64::new(0.0, 1.0), c64::new(0.0, 0.0)]
         ],
         targets: vec![target],
     }

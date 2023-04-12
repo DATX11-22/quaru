@@ -113,12 +113,12 @@ pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
     let mut matrix = hadamard(targets[0]).matrix();
     let len = targets.len();
 
-    for i in 1..len {
-        matrix = linalg::kron(&hadamard(targets[i]).matrix(), &matrix);
+    for t in targets.iter().take(len).skip(1) {
+        matrix = linalg::kron(&hadamard(*t).matrix(), &matrix);
     }
     Operation {
-        matrix: matrix,
-        targets: targets,
+        matrix,
+        targets,
     }
 }
 
@@ -145,7 +145,7 @@ pub fn qft(n: usize) -> Operation {
         }
     }
     Operation {
-        matrix: matrix,
+        matrix,
         targets: (0..n).collect(),
     }
 }
@@ -167,8 +167,8 @@ pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Opera
         }
     }
     Operation {
-        matrix: matrix,
-        targets: targets,
+        matrix,
+        targets,
     }
 }
 
@@ -191,8 +191,8 @@ pub fn to_controlled(op: Operation, control: usize) -> Operation {
     // One more target bit: the control.
     targets.push(control);
     Operation {
-        matrix: matrix,
-        targets: targets,
+        matrix,
+        targets,
     }
 }
 

@@ -2,11 +2,10 @@ extern crate proptest;
 use std::ops::Range;
 
 use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
-use num::Complex;
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quaru::operation::{self, cnx, Operation};
-use quaru::math::{equal_qubits, to_qbit_vector};
+use quaru::math::{c64, equal_qubits, to_qbit_vector};
 use quaru::register::Register;
 use std::f64::consts;
 
@@ -25,11 +24,11 @@ fn measure_on_zero_state_gives_false() {
 #[test]
 fn new_qubits_test() {
     let reg_qubits = Register::new_qubits(&[
-        ndarray::array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]],
-        ndarray::array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]],
+        ndarray::array![[c64::new(1.0, 0.0)], [c64::new(0.0, 0.0)]],
+        ndarray::array![[c64::new(0.0, 0.0)], [c64::new(1.0, 0.0)]],
         ndarray::array![
-            [Complex::new(1.0 / (2.0_f64).sqrt(), 0.0)],
-            [Complex::new(1.0 / (2.0_f64).sqrt(), 0.0)]
+            [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)],
+            [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)]
         ],
     ]);
     let mut reg = Register::new(&[false, true, false]);
@@ -228,7 +227,7 @@ proptest!(
 
         let expected = q0.0.clone();
         let mut reg = Register::new(&[false, false, true]);
-        let base_state = array![[Complex::new(1.0, 0.0)]];
+        let base_state = array![[c64::new(1.0, 0.0)]];
         let new_state = [expected.clone(), to_qbit_vector(&false) , to_qbit_vector(&false)]
                     .iter()
                     .fold(base_state, |a, b| linalg::kron(&b, &a));
@@ -304,11 +303,11 @@ proptest!(
 );
 
 pub fn get_state_of_qubit(
-    state: ArrayBase<OwnedRepr<Complex<f64>>, Dim<[usize; 2]>>,
+    state: ArrayBase<OwnedRepr<c64>, Dim<[usize; 2]>>,
     n: usize,
-) -> Array2<Complex<f64>> {
-    let mut beta: Complex<f64> = Complex::new(0.0, 0.0);
-    let mut alpha: Complex<f64> = Complex::new(0.0, 0.0);
+) -> Array2<c64> {
+    let mut beta: c64 = c64::new(0.0, 0.0);
+    let mut alpha: c64 = c64::new(0.0, 0.0);
     for (i, s) in state.iter().enumerate() {
         if (i >> n) & 1 == 1 {
             beta += s;
@@ -323,7 +322,7 @@ pub fn get_state_of_qubit(
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Qubit(Array2<Complex<f64>>);
+pub struct Qubit(Array2<c64>);
 
 impl Arbitrary for Qubit {
     type Parameters = ();
@@ -331,22 +330,19 @@ impl Arbitrary for Qubit {
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let frac = consts::FRAC_1_SQRT_2;
         select(vec![
-            Qubit(array![[Complex::new(1.0, 0.0)], [Complex::new(0.0, 0.0)]]),
-            Qubit(array![[Complex::new(0.0, 0.0)], [Complex::new(1.0, 0.0)]]),
-            Qubit(array![[Complex::new(frac, 0.0)], [Complex::new(frac, 0.0)]]),
+            Qubit(array![[c64::new(1.0, 0.0)], [c64::new(0.0, 0.0)]]),
+            Qubit(array![[c64::new(0.0, 0.0)], [c64::new(1.0, 0.0)]]),
+            Qubit(array![[c64::new(frac, 0.0)], [c64::new(frac, 0.0)]]),
             Qubit(array![
-                [Complex::new(frac, 0.0)],
-                [Complex::new(-frac, 0.0)]
+                [c64::new(frac, 0.0)],
+                [c64::new(-frac, 0.0)]
             ]),
             Qubit(array![
-                [Complex::new(frac, 0.0)],
-                [Complex::new(0.0, -frac)]
+                [c64::new(frac, 0.0)],
+                [c64::new(0.0, -frac)]
             ]),
         ])
     }
-}
-fn real_to_complex(matrix: Array2<f64>) -> Array2<Complex<f64>> {
-    matrix.map(|e| e.into())
 }
 
 #[derive(Debug, Clone)]

@@ -83,7 +83,7 @@ pub fn modpow(mut base: u32, mut exponent: u32, modulus: u32) -> u32 {
         // Double the number of multiplications.
         base = base * base % modulus;
     }
-    return result;
+    result
 }
 
 /// A 64-bit complex float.

@@ -26,6 +26,18 @@ blas = ["ndarray/blas"]
 proptest = "1.1.0"
 
 [[example]]
+name = "grovers"
+test = true
+
+[[example]]
+name = "shors"
+test = true
+
+[[example]]
+name = "openqasm_example"
+test = true
+
+[[example]]
 name = "quantum_teleportation"
 test = true
 

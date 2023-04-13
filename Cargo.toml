@@ -28,3 +28,7 @@ proptest = "1.1.0"
 [[example]]
 name = "quantum_teleportation"
 test = true
+
+[[example]]
+name = "superdense_coding"
+test = true

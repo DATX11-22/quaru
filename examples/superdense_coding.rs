@@ -31,7 +31,7 @@ fn main() {
 
     println!("Measured result: {} {}", a, b);
 
-    if a==args.a && b==args.b {
+    if a == args.a && b == args.b {
         println!("Correct");
     } else {
         println!("WRONG!");
@@ -78,15 +78,10 @@ fn superdense_decode(mut register: Register) -> (bool, bool) {
     register.apply(&operation::hadamard(0));
 
     (register.measure(0), register.measure(1))
-
 }
 
 #[cfg(test)]
 mod tests {
-    use ndarray::array;
-    use quaru::math::c64;
-    use rand::Rng;
-
     #[test]
     fn superdense_coding() {
         for a in [false, true] {

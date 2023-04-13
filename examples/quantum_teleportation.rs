@@ -28,7 +28,7 @@ fn main() {
     let q0 = array![[c64::new(args.a, args.b)], [c64::new(args.c, args.d)]];
     let (is_equal, result) = test_quantum_teleportation(q0.clone());
     println!("Expected:\n{}\n", q0);
-    println!("Got:\n{:}\n", result);
+    println!("Got:\n{}\n", result);
     if is_equal {
         println!("Correct");
     } else {
@@ -104,13 +104,20 @@ mod tests {
     #[test]
     fn quantum_teleportation() {
         let mut rng = rand::thread_rng();
-        for i in 0..20 {
+        for _ in 0..20 {
             // Random complex number with norm <= 1
-            let a = c64::from_polar(rng.gen_range(0.0 .. 1.0), rng.gen_range(0.0 .. 2.0 * std::f64::consts::PI));
+            let a = c64::from_polar(
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..2.0 * std::f64::consts::PI),
+            );
+
             // Random complex number such that norm(a)^2 + norm(b)^2 = 1
-            let b = c64::from_polar((1.0 - a.norm().powi(2)).sqrt(), rng.gen_range(0.0 .. 2.0 * std::f64::consts::PI));
-            
-            assert!(((a*a).norm() + (b*b).norm() - 1.0).abs() < 1e-10);
+            let b = c64::from_polar(
+                (1.0 - a.norm().powi(2)).sqrt(),
+                rng.gen_range(0.0..2.0 * std::f64::consts::PI),
+            );
+
+            assert!(((a * a).norm() + (b * b).norm() - 1.0).abs() < 1e-10);
 
             let q0 = array![[a], [b]];
             let (is_equal, _) = super::test_quantum_teleportation(q0);

@@ -1,9 +1,12 @@
 //! Code related to running openqasm programs on the simulator.
 
-use crate::{operation, register::Register};
-use openqasm_parser::openqasm::{
-    self, BasicOp, OpenQASMError as OpenQASMParseError,
+use crate::{
+    math::c64,
+    operation::{self, Operation},
+    register::Register,
 };
+use ndarray::array;
+use openqasm_parser::openqasm::{self, BasicOp, OpenQASMError as OpenQASMParseError};
 use std::{collections::HashMap, path::Path};
 
 /// A tuple containing some quantum registers and classical registers
@@ -44,8 +47,8 @@ pub enum OpenQASMError {
 /// let registers = openqasm::run_openqasm(Path::new("filepath.qasm"));
 /// ```
 pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
-    let program = openqasm::parse_openqasm(openqasm_file)
-        .map_err(OpenQASMError::OpenQASMParseError)?;
+    let program =
+        openqasm::parse_openqasm(openqasm_file).map_err(OpenQASMError::OpenQASMParseError)?;
 
     // Initializes the registers defined in the openqasm file. All registers are initialized
     // to 0.
@@ -87,7 +90,7 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
                     .qregs
                     .get_mut(&q.0)
                     .expect("Register does not exist?");
-                qreg.apply(&operation::u(p1 as f64, p2 as f64, p3 as f64, q.1));
+                qreg.apply(&u(p1 as f64, p2 as f64, p3 as f64, q.1));
             }
             BasicOp::CX(q1, q2) => {
                 if q1.0 != q2.0 {
@@ -130,6 +133,29 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
     }
 
     Ok(registers)
+}
+
+/// Returns the universal unary operation as described in the OpenQASM 2.0 specification for
+/// the given angles on the `target` qubit.
+pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
+    let theta = c64::from(theta);
+    let phi = c64::from(phi);
+    let lambda = c64::from(lambda);
+    let i = c64::i();
+    Operation::new(
+        array![
+            [
+                (-i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos(),
+                -(-i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin()
+            ],
+            [
+                (i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin(),
+                (i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos()
+            ],
+        ],
+        vec![target],
+    )
+    .expect("U gate is incorrectly formated")
 }
 
 /// Converts a classical register to a u32

@@ -308,27 +308,6 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
     }
 }
 
-/// Returns a universal operation for the given angles on the `target` qubit.
-pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
-    let theta = c64::from(theta);
-    let phi = c64::from(phi);
-    let lambda = c64::from(lambda);
-    let i = c64::i();
-    Operation {
-        matrix: array![
-            [
-                (-i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos(),
-                -(-i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin()
-            ],
-            [
-                (i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin(),
-                (i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos()
-            ],
-        ],
-        targets: vec![target],
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use ndarray::Array2;

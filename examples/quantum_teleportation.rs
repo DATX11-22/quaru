@@ -1,15 +1,9 @@
 use clap::Parser;
 
-use colored::Colorize;
-use log::debug;
 use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
-use num::traits::Pow;
 use num::Zero;
 use quaru::math::{c64, equal_qubits, to_qbit_vector};
-use quaru::math::{limit_denominator, modpow};
 use quaru::{operation, register::Register};
-use rand::Rng;
-use stopwatch::Stopwatch;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -104,7 +98,6 @@ pub fn get_state_of_qubit(
 #[cfg(test)]
 mod tests {
     use ndarray::array;
-    use num::{integer::Roots, traits::Pow};
     use quaru::math::c64;
     use rand::Rng;
 

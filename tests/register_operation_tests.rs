@@ -2,10 +2,11 @@ extern crate proptest;
 use std::ops::Range;
 
 use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
+use proptest::option::OptionStrategy;
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quaru::operation::{self, cnx, Operation};
-use quaru::math::{c64, equal_qubits, to_qbit_vector};
+use quaru::math::{c64, equal_qubits, to_qbit_vector, ComplexFloat};
 use quaru::register::Register;
 use std::f64::consts;
 
@@ -324,25 +325,34 @@ pub fn get_state_of_qubit(
 #[derive(Clone, Debug, PartialEq)]
 pub struct Qubit(Array2<c64>);
 
+fn gen_qubit() -> Qubit {
+    let theta = rand::thread_rng().gen_range(0.0..=std::f64::consts::PI);
+    let phi = rand::thread_rng().gen_range(0.0..=2.0 * std::f64::consts::PI);
+    let alpha : c64 = c64::new((theta / 2.0).cos(), 0.0);
+    let beta : c64  = (theta / 2.0).sin() * consts::E.powc(c64::new(0.0, phi));
+    //normalize the vector
+    let prob = alpha.norm().powi(2) + beta.norm().powi(2);
+    println!("prob: {:}", prob);
+    let alpha = alpha / prob.sqrt();
+    let beta = beta / prob.sqrt();
+    Qubit(array![[alpha], [beta]])
+}
+
 impl Arbitrary for Qubit {
     type Parameters = ();
+    //strategy is only a value
     type Strategy = Select<Qubit>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        let frac = consts::FRAC_1_SQRT_2;
-        select(vec![
-            Qubit(array![[c64::new(1.0, 0.0)], [c64::new(0.0, 0.0)]]),
-            Qubit(array![[c64::new(0.0, 0.0)], [c64::new(1.0, 0.0)]]),
-            Qubit(array![[c64::new(frac, 0.0)], [c64::new(frac, 0.0)]]),
-            Qubit(array![
-                [c64::new(frac, 0.0)],
-                [c64::new(-frac, 0.0)]
-            ]),
-            Qubit(array![
-                [c64::new(frac, 0.0)],
-                [c64::new(0.0, -frac)]
-            ]),
-        ])
+        //return the strategy
+        let mut qubits = vec![];
+        for _ in 0..100 {
+            qubits.push(gen_qubit());
+        }
+        select(qubits)
+
+
     }
+
 }
 
 #[derive(Debug, Clone)]

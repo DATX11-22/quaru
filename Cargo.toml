@@ -36,3 +36,11 @@ test = true
 [[example]]
 name = "openqasm_example"
 test = true
+
+[[example]]
+name = "quantum_teleportation"
+test = true
+
+[[example]]
+name = "superdense_coding"
+test = true

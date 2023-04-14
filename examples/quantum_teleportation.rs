@@ -114,7 +114,7 @@ mod tests {
     fn gen_qubit() -> ndarray::Array2<c64> {
         //genarate random angles
         let theta = rand::thread_rng().gen_range(0.0..=std::f64::consts::PI);
-        let phi   = rand::thread_rng().gen_range(0.0..=2.0 * std::f64::consts::PI);
+        let phi   = rand::thread_rng().gen_range(0.0..2.0 * std::f64::consts::PI);
         //create amplitudes of qubit
         let alpha : c64 = c64::new((theta / 2.0).cos(), 0.0);
         let beta  : c64 = (theta / 2.0).sin() * consts::E.powc(c64::new(0.0, phi));

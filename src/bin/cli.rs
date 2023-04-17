@@ -1,7 +1,7 @@
 use clap::Parser;
 use inquire::{error::InquireError, Select};
 
-use std::{fmt::Display, vec};
+use std::{collections::HashMap, fmt::Display, vec};
 
 use quaru::{
     operation::{self, Operation},
@@ -13,12 +13,19 @@ enum Choice {
     Show,
     Apply,
     Measure,
+    Create,
     Exit,
 }
 
 impl Choice {
     fn choices() -> Vec<Choice> {
-        vec![Choice::Show, Choice::Apply, Choice::Measure, Choice::Exit]
+        vec![
+            Choice::Show,
+            Choice::Apply,
+            Choice::Measure,
+            Choice::Create,
+            Choice::Exit,
+        ]
     }
 }
 
@@ -28,6 +35,7 @@ impl Display for Choice {
             Choice::Apply => write!(f, "Apply"),
             Choice::Measure => write!(f, "Measure"),
             Choice::Show => write!(f, "Show"),
+            Choice::Create => write!(f, "Create"),
             Choice::Exit => write!(f, "Exit"),
         }
     }
@@ -225,6 +233,26 @@ fn qubit_prompt<const N: usize>(
     Ok(targets)
 }
 
+/// Prompts the user for a quantum register in the specified `State`
+fn qreg_prompt(state: &mut State) -> Result<&mut Register, InquireError> {
+    let options: Vec<String> = state.q_regs.keys().cloned().collect();
+
+    // Prompt for the quantum register. If there is only one then we don't need to
+    // display the prompt.
+    let choice = if options.len() == 1 {
+        options[0].clone()
+    } else {
+        Select::new("Select a quantum register: ", options).prompt()?
+    };
+
+    state
+        .q_regs
+        .get_mut(&choice)
+        .ok_or(InquireError::InvalidConfiguration(
+            "Invalid quantum register".to_string(),
+        ))
+}
+
 /// Given a register size `size`, prompts the user for a unary operation and a target qubit and
 /// returns the result containing an operation.
 ///
@@ -275,12 +303,15 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
     Ok(op)
 }
 
-/// Given a mutable register `reg` prompts the user for an operation and applies it to the
-/// register.
+/// Given a mutable simulator state `state` prompts the user for an operation and applies it to a 
+/// register in the simulator state.
 ///
 /// # Panics
 /// Panics if an error occurs while selecting an operation or when the operation is applied.
-fn handle_apply(reg: &mut Register) {
+fn handle_apply(state: &mut State) {
+    let reg = qreg_prompt(state)
+        .expect("Problem encountered when selecting a quantum register");
+
     let op_type = operation_prompt(reg.size())
         .expect("Problem encountered during operation type selection");
 
@@ -295,12 +326,14 @@ fn handle_apply(reg: &mut Register) {
     };
 }
 
-/// Given a mutable register `reg` prompts the user for an index and measures the qubit at that
-/// index, printing the result.
+/// Given a mutable simulator state `state` prompts the user for a qubit and measures it, printing the result.
 ///
 /// # Panics
 /// Panics if an error occurs while selecting an index.
-fn handle_measure(reg: &mut Register) {
+fn handle_measure(state: &mut State) {
+    let reg = qreg_prompt(state)
+        .expect("Problem encountered when selecting a quantum register");
+
     let index = qubit_prompt(["target"], reg.size())
         .expect("Problem encountered when selecting a qubit")[0];
 
@@ -308,8 +341,9 @@ fn handle_measure(reg: &mut Register) {
     println!("Qubit at index {index} measured {result}");
 }
 
-/// Given a register `reg` prints an overview of the register state.
-fn handle_show(reg: &Register) {
+/// Given a simulator state `state`, prompts for and prints an overview of a register state.
+fn handle_show(state: &mut State) {
+    let reg = qreg_prompt(state).expect("Problem encountered when selecting a quantum register");
     println!("Register of size: {}", reg.size());
     reg.print_state();
 }
@@ -323,23 +357,38 @@ struct Args {
     size: Option<usize>,
 }
 
+/// The state of the simulator
+struct State {
+    q_regs: HashMap<String, Register>,
+    c_regs: HashMap<String, Vec<bool>>,
+}
+
 /// Runs the Quaru shell.
 fn main() {
     let args = Args::parse();
 
     println!("{QUARU}");
-    // size arg is optional
-    let size = if let Some(n) = args.size {
-        n
+
+    // Initialize the state of the simulator
+    let mut state = State {
+        q_regs: HashMap::new(),
+        c_regs: HashMap::new(),
+    };
+
+    // Size arg is optional.
+    let n = if let Some(size) = args.size {
+        size
     } else {
         // 4 max gives a nice wrapping, argument allows for bigger
         size_prompt(4).expect("Problem when selecting a register size")
     };
 
-    let init_state = &[false].repeat(size);
-    let mut reg = Register::new(init_state.as_slice());
+    // Create initial register
+    let init_state = &[false].repeat(n);
+    let reg = Register::new(init_state.as_slice());
+    state.q_regs.insert("qreg0".to_string(), reg);
 
-    // clear terminal
+    // Clear terminal
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
@@ -348,9 +397,10 @@ fn main() {
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
         match init {
-            Choice::Show => handle_show(&reg),
-            Choice::Apply => handle_apply(&mut reg),
-            Choice::Measure => handle_measure(&mut reg),
+            Choice::Show => handle_show(&mut state),
+            Choice::Apply => handle_apply(&mut state),
+            Choice::Measure => handle_measure(&mut state),
+            Choice::Create => todo!(),
             Choice::Exit => break,
         };
     }

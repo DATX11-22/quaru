@@ -233,10 +233,10 @@ fn qubit_prompt<const N: usize>(
 /// Panics if an error occurs during any of the prompts or if `size` == 0.
 fn get_unary(size: usize) -> Result<Operation, InquireError> {
     let unary_op =
-        unary_prompt().expect("Problem encountered when selecting unary operation: {e:?}");
+        unary_prompt().expect("Problem encountered when selecting unary operation");
 
     let target = qubit_prompt(unary_operation_target_name(&unary_op), size)
-        .expect("Problem encountered when selecting index: {e:?}")[0];
+        .expect("Problem encountered when selecting index")[0];
 
     let op = match unary_op {
         UnaryOperation::Identity => operation::identity(target),
@@ -259,10 +259,10 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 /// TODO: also panics if targets are not in ascending order.
 fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let binary_op =
-        binary_prompt().expect("Problem encountered when selecting binary operation: {e:?}");
+        binary_prompt().expect("Problem encountered when selecting binary operation");
 
     let targets = qubit_prompt(binary_operation_target_names(&binary_op), size)
-        .expect("Problem encountered when selecting index: {e:?}");
+        .expect("Problem encountered when selecting index");
 
     let a = targets[0];
     let b = targets[1];
@@ -282,7 +282,7 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
 /// Panics if an error occurs while selecting an operation or when the operation is applied.
 fn handle_apply(reg: &mut Register) {
     let op_type = operation_prompt(reg.size())
-        .expect("Problem encountered during operation type selection: {e:?}");
+        .expect("Problem encountered during operation type selection");
 
     let result = match op_type {
         OperationType::Unary => get_unary(reg.size()),
@@ -302,7 +302,7 @@ fn handle_apply(reg: &mut Register) {
 /// Panics if an error occurs while selecting an index.
 fn handle_measure(reg: &mut Register) {
     let index = qubit_prompt(["target"], reg.size())
-        .expect("Problem encountered when selecting a qubit: {e:?}")[0];
+        .expect("Problem encountered when selecting a qubit")[0];
 
     let result = reg.measure(index);
     println!("Qubit at index {index} measured {result}");
@@ -333,7 +333,7 @@ fn main() {
         n
     } else {
         // 4 max gives a nice wrapping, argument allows for bigger
-        size_prompt(4).expect("Problem when selecting a register size: {e:?}")
+        size_prompt(4).expect("Problem when selecting a register size")
     };
 
     let init_state = &[false].repeat(size);
@@ -343,7 +343,7 @@ fn main() {
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
-        let init = init_prompt().expect("Problem selecting an option: {e:?}");
+        let init = init_prompt().expect("Problem selecting an option");
 
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 

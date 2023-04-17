@@ -127,10 +127,13 @@ fn shors(number: u32) -> u32 {
                 debug!("GCD({}-1, N) = {}", k, factor1);
                 debug!("GCD({}+1, N) = {}", k, factor2);
 
-                // At least one of factor1 and factor2 is a non-trivial factor of N.
-                // But one of them might be 1, so we can return larger one.
-                return factor1.max(factor2);
+                // At this point, both factor1 and factor2 are guaranteed to be
+                // non-trivial factors of N, so we can return either one.
+                // It is also be the case that factor1 * factor2 = N.
+                
+                return factor1;
             } else {
+                // We end up here if {gcd(k-1,N), gcd(k+1,N)} = {1, N}.
                 debug!("a^(r/2) = -1 (mod N), trying again");
             }
         } else {

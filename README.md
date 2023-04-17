@@ -12,6 +12,18 @@ Repository for group 22 quantum computer simulator bachelor's thesis.
 - [Project Report](https://www.overleaf.com/read/tsphshnkpfxy)
 - [Project Plan](https://www.overleaf.com/project/63ca8a6b32ea8a38a590acc1)
 
+## Examples
+
+The simulator features a number of examples located under the /examples directory. These are binary crates you can run with cargo.<br/>
+To run an example, run the following command: <br/>
+`cargo run --example <filename>`
+
+Some examples accept parameters. To provide these, use: <br/>
+`cargo run --example <filename> -- --flag <value>`
+
+For example: <br/>
+`cargo run --example grovers -- --target 64`
+
 #### BLAS feature
 
 We provide suport for enabling the feature "blas" in the [ndarray](https://crates.io/crates/ndarray) crate.

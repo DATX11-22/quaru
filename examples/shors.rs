@@ -149,7 +149,7 @@ fn shors(number: u32) -> u32 {
 /// Calculate r, a good guess for the period of f(x) = a^x mod N.
 fn find_period(number: u32, a: u32) -> u32 {
     // We need n qubits to represent N
-    let n = (number as f64).log2().ceil() as usize;
+    let n = ((number + 1) as f64).log2().ceil() as usize;
 
     // Create a register with 3n qubits
     let mut reg = Register::new(&vec![false; 3 * n]);

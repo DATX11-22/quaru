@@ -1,9 +1,11 @@
+use std::f64::consts;
 use clap::Parser;
-
 use colored::Colorize;
 use log::debug;
+use ndarray::Array2;
 use num::traits::Pow;
-use quaru::math::{limit_denominator, modpow};
+use quaru::math::{limit_denominator, modpow, c64, ComplexFloat};
+use quaru::operation::Operation;
 use quaru::{operation, register::Register};
 use rand::Rng;
 use stopwatch::Stopwatch;
@@ -175,9 +177,9 @@ fn find_period(number: u32, a: u32) -> u32 {
     }
 
     // Apply the qft (Quantum Fourier Transform) to the first 2n qubits
-    let qft = operation::qft(2 * n);
+    let qft = qft(2 * n);
     debug!("Applying qft");
-    reg.apply(&qft);
+    reg.apply(&qft.expect("Creation of qft failed"));
 
     // Measure the first 2n qubits and convert the results to an integer
     let mut res = 0;
@@ -197,6 +199,19 @@ fn find_period(number: u32, a: u32) -> u32 {
     let r = limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1;
 
     r
+}
+
+/// Returns the Quantum Fourier Transformation gate for the first n qubits in the register
+pub fn qft(n: usize) -> Option<Operation> {
+    let m = 1 << n;
+    let mut matrix = Array2::zeros((m, m));
+    let w = consts::E.powc(c64::new(0.0, 2.0 * consts::PI / m as f64));
+    for i in 0..m as i32 {
+        for j in 0..m as i32 {
+            matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (m as f64).sqrt());
+        }
+    }
+    Operation::new(matrix, (0..n).collect())
 }
 
 #[cfg(test)]

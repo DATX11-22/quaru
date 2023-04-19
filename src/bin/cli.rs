@@ -1,9 +1,9 @@
 use clap::Parser;
 use inquire::{error::InquireError, validator::Validation, Select, Text};
-
-use std::{collections::HashMap, fmt::Display, vec};
+use std::{collections::HashMap, fmt::Display, path::Path, vec};
 
 use quaru::{
+    openqasm::{self, OpenQASMError},
     operation::{self, Operation},
     register::Register,
 };
@@ -14,6 +14,7 @@ enum Choice {
     Apply,
     Measure,
     Create,
+    OpenQASM,
     Exit,
 }
 
@@ -27,7 +28,7 @@ impl Choice {
             choices.append(&mut vec![Choice::Apply, Choice::Measure]);
         }
 
-        choices.append(&mut vec![Choice::Create, Choice::Exit]);
+        choices.append(&mut vec![Choice::Create, Choice::OpenQASM, Choice::Exit]);
 
         choices
     }
@@ -39,7 +40,8 @@ impl Display for Choice {
             Choice::Apply => write!(f, "Apply"),
             Choice::Measure => write!(f, "Measure"),
             Choice::Show => write!(f, "Show"),
-            Choice::Create => write!(f, "Create"),
+            Choice::Create => write!(f, "Create register"),
+            Choice::OpenQASM => write!(f, "Run OpenQASM program"),
             Choice::Exit => write!(f, "Exit"),
         }
     }
@@ -323,17 +325,32 @@ fn reg_prompt<T>(
 
 /// Prompts the user for a quantum register in the specified register collection
 fn qreg_prompt(registers: &mut QRegCollection) -> Result<&mut Register, InquireError> {
-    reg_prompt("Select quantum register".to_string(), registers, true, false)
+    reg_prompt(
+        "Select quantum register".to_string(),
+        registers,
+        true,
+        false,
+    )
 }
 
 /// Prompts the user for a quantum register in the specified register collection
 fn creg_prompt(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, InquireError> {
-    reg_prompt("Select classical register".to_string(), registers, true, false)
+    reg_prompt(
+        "Select classical register".to_string(),
+        registers,
+        true,
+        false,
+    )
 }
 
 /// Prompts the user for a quantum register in the specified register collection, skippable
 fn creg_prompt_skippable(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, InquireError> {
-    reg_prompt("Select classical register (ESC to cancel)".to_string(), registers, false, true)
+    reg_prompt(
+        "Select classical register (ESC to cancel)".to_string(),
+        registers,
+        false,
+        true,
+    )
 }
 
 /// Given a register size `size`, prompts the user for a unary operation and a target qubit and
@@ -486,6 +503,30 @@ fn handle_create(state: &mut State) {
     }
 }
 
+/// Given a simulator state `state`, prompts the user for a file containing OpenQASM code, runs the code
+/// and updates `state` accordingly
+fn handle_openqasm(state: &mut State) {
+    let filepath_validator = |s: &str| {
+        let path = Path::new(s);
+        match openqasm::run_openqasm(path) {
+            Ok(_) => Ok(Validation::Valid),
+            Err(e) => Ok(Validation::Invalid(
+                format!("Parsing error: {:?}", e).into(),
+            ))
+        }
+    };
+    let filepath = Text::new("OpenQASM file path:")
+        .with_validator(filepath_validator)
+        .prompt()
+        .expect("Problem encountered when specifying filepath");
+
+    let res = openqasm::run_openqasm(Path::new(&filepath))
+        .expect("Problem encountered when running OpenQASM program");
+
+    state.q_regs.extend(res.qregs);
+    state.c_regs.extend(res.cregs);
+}
+
 /// A cli-based ideal quantum computer simulator
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -538,6 +579,7 @@ fn main() {
             Choice::Apply => handle_apply(&mut state),
             Choice::Measure => handle_measure(&mut state),
             Choice::Create => handle_create(&mut state),
+            Choice::OpenQASM => handle_openqasm(&mut state),
             Choice::Exit => break,
         };
     }

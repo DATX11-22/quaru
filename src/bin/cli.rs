@@ -211,7 +211,7 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
 /// # Panics
 ///
 /// Panics if `N` is greater than `size`.
-fn qubit_prompt<const N: usize>(
+fn indicies_prompt<const N: usize>(
     target_names: [&str; N],
     size: usize,
 ) -> Result<Vec<usize>, InquireError> {
@@ -297,13 +297,19 @@ fn register_name_prompt(state: &State) -> Result<String, InquireError> {
 fn reg_prompt<T>(
     message: String,
     registers: &mut RegCollection<T>,
+    autoselect: bool,
+    skipable: bool,
 ) -> Result<&mut T, InquireError> {
     let options: Vec<String> = registers.keys().cloned().collect();
 
     // Prompt for the quantum register. If there is only one then we don't need to
     // display the prompt.
-    let choice = if options.len() == 1 {
+    let choice = if options.len() == 1 && autoselect {
         options[0].clone()
+    } else if skipable {
+        Select::new(&message, options)
+            .prompt_skippable()?
+            .ok_or(InquireError::OperationCanceled)?
     } else {
         Select::new(&message, options).prompt()?
     };
@@ -317,12 +323,17 @@ fn reg_prompt<T>(
 
 /// Prompts the user for a quantum register in the specified register collection
 fn qreg_prompt(registers: &mut QRegCollection) -> Result<&mut Register, InquireError> {
-    reg_prompt("Select quantum register".to_string(), registers)
+    reg_prompt("Select quantum register".to_string(), registers, true, false)
 }
 
 /// Prompts the user for a quantum register in the specified register collection
 fn creg_prompt(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, InquireError> {
-    reg_prompt("Select classical register".to_string(), registers)
+    reg_prompt("Select classical register".to_string(), registers, true, false)
+}
+
+/// Prompts the user for a quantum register in the specified register collection, skippable
+fn creg_prompt_skippable(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, InquireError> {
+    reg_prompt("Select classical register (ESC to cancel)".to_string(), registers, false, true)
 }
 
 /// Given a register size `size`, prompts the user for a unary operation and a target qubit and
@@ -334,7 +345,7 @@ fn creg_prompt(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, Inquire
 fn get_unary(size: usize) -> Result<Operation, InquireError> {
     let unary_op = unary_prompt().expect("Problem encountered when selecting unary operation");
 
-    let target = qubit_prompt(unary_operation_target_name(&unary_op), size)
+    let target = indicies_prompt(unary_operation_target_name(&unary_op), size)
         .expect("Problem encountered when selecting index")[0];
 
     let op = match unary_op {
@@ -359,7 +370,7 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let binary_op = binary_prompt().expect("Problem encountered when selecting binary operation");
 
-    let targets = qubit_prompt(binary_operation_target_names(&binary_op), size)
+    let targets = indicies_prompt(binary_operation_target_names(&binary_op), size)
         .expect("Problem encountered when selecting index");
 
     let a = targets[0];
@@ -401,14 +412,22 @@ fn handle_apply(state: &mut State) {
 /// # Panics
 /// Panics if an error occurs while selecting an index.
 fn handle_measure(state: &mut State) {
-    let reg = qreg_prompt(&mut state.q_regs)
+    let q_reg = qreg_prompt(&mut state.q_regs)
         .expect("Problem encountered when selecting a quantum register");
 
-    let index = qubit_prompt(["target"], reg.size())
+    let q_index = indicies_prompt(["qubit"], q_reg.size())
         .expect("Problem encountered when selecting a qubit")[0];
 
-    let result = reg.measure(index);
-    println!("Qubit at index {index} measured {result}");
+    let result = q_reg.measure(q_index);
+
+    if let Ok(c_reg) = creg_prompt_skippable(&mut state.c_regs) {
+        let c_index = indicies_prompt(["bit"], c_reg.len())
+            .expect("Problem encountered when selecting a classical bit")[0];
+
+        c_reg[c_index] = result;
+    }
+
+    println!("Qubit at measured {result}");
 }
 
 /// Given a simulator state `state`, prompts for and prints an overview of a register state.

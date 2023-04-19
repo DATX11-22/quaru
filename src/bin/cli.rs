@@ -18,14 +18,18 @@ enum Choice {
 }
 
 impl Choice {
-    fn choices() -> Vec<Choice> {
-        vec![
-            Choice::Show,
-            Choice::Apply,
-            Choice::Measure,
-            Choice::Create,
-            Choice::Exit,
-        ]
+    fn choices(state: &State) -> Vec<Choice> {
+        let mut choices = Vec::new();
+        if !state.q_regs.is_empty() || !state.c_regs.is_empty() {
+            choices.append(&mut vec![Choice::Show]);
+        }
+        if !state.q_regs.is_empty() {
+            choices.append(&mut vec![Choice::Apply, Choice::Measure]);
+        }
+
+        choices.append(&mut vec![Choice::Create, Choice::Exit]);
+
+        choices
     }
 }
 
@@ -153,8 +157,11 @@ fn size_prompt(max: usize) -> Result<usize, InquireError> {
 /// Choices include:
 /// - Applying an operation
 /// - Showing the register state
-fn init_prompt() -> Result<Choice, InquireError> {
-    let options = Choice::choices();
+/// - Measuring a qubit
+/// - Creating a register
+/// - Exiting the application
+fn init_prompt(state: &State) -> Result<Choice, InquireError> {
+    let options = Choice::choices(state);
     Select::new("Select an option: ", options).prompt()
 }
 
@@ -491,24 +498,19 @@ fn main() {
         c_regs: HashMap::new(),
     };
 
-    // Size arg is optional.
-    let n = if let Some(size) = args.size {
-        size
-    } else {
-        // 4 max gives a nice wrapping, argument allows for bigger
-        size_prompt(4).expect("Problem when selecting a register size")
-    };
-
-    // Create initial register
-    let init_state = &[false].repeat(n);
-    let reg = Register::new(init_state.as_slice());
-    state.q_regs.insert("qreg0".to_string(), reg);
+    // Size arg is optional. Create quantum register on startup if size arg is supplied.
+    if let Some(n) = args.size {
+        // Create initial register
+        let init_state = &[false].repeat(n);
+        let reg = Register::new(init_state.as_slice());
+        state.q_regs.insert("qreg0".to_string(), reg);
+    }
 
     // Clear terminal
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
-        let init = init_prompt().expect("Problem selecting an option");
+        let init = init_prompt(&state).expect("Problem selecting an option");
 
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 

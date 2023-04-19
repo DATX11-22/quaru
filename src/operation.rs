@@ -25,7 +25,7 @@
 //!
 //! let identity: Operation = identity(0);
 //! ```
-use crate::math::{c64, int_to_state, real_arr_to_complex, ComplexFloat};
+use crate::math::{c64, int_to_state, real_arr_to_complex};
 use ndarray::{array, Array2};
 use std::{f64::consts, vec};
 use ndarray::linalg;
@@ -129,22 +129,6 @@ pub fn cnot(control: usize, target: usize) -> Operation {
             [0.0, 0.0, 1.0, 0.0]
         ]),
         targets: vec![target, control],
-    }
-}
-
-/// Returns the Quantum Fourier Transformation for the given number.
-pub fn qft(n: usize) -> Operation {
-    let m = 1 << n;
-    let mut matrix = Array2::zeros((m, m));
-    let w = consts::E.powc(c64::new(0.0, 2.0 * consts::PI / m as f64));
-    for i in 0..m as i32 {
-        for j in 0..m as i32 {
-            matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (m as f64).sqrt());
-        }
-    }
-    Operation {
-        matrix,
-        targets: (0..n).collect(),
     }
 }
 
@@ -308,32 +292,11 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
     }
 }
 
-/// Returns a universal operation for the given angles on the `target` qubit.
-pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Operation {
-    let theta = c64::from(theta);
-    let phi = c64::from(phi);
-    let lambda = c64::from(lambda);
-    let i = c64::i();
-    Operation {
-        matrix: array![
-            [
-                (-i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos(),
-                -(-i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin()
-            ],
-            [
-                (i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin(),
-                (i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos()
-            ],
-        ],
-        targets: vec![target],
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use ndarray::Array2;
     use crate::math::c64;
-    use super::{cnot, cnx, hadamard, identity, not, QuantumOperation, pauli_y, pauli_z, phase, qft, swap};
+    use super::{cnot, cnx, hadamard, identity, not, QuantumOperation, pauli_y, pauli_z, phase, swap};
 
     fn all_ops() -> Vec<Box<dyn QuantumOperation>> {
         vec![
@@ -350,7 +313,6 @@ mod tests {
             Box::new(cnx(&[0, 1, 2], 3)),
             Box::new(cnx(&[0, 1, 2, 3], 4)),
             Box::new(cnx(&[0, 1, 2, 3, 4], 5)),
-            Box::new(qft(5)),
         ]
     }
 

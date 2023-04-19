@@ -5,7 +5,7 @@ use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
 use quaru::operation::{self, cnx, Operation};
-use quaru::math::{c64, equal_qubits, to_qbit_vector};
+use quaru::math::{c64, equal_qubits, to_qbit_vector, self};
 use quaru::register::Register;
 use std::f64::consts;
 
@@ -22,15 +22,18 @@ fn measure_on_zero_state_gives_false() {
 /// is equal to creating a state |0>, |1>, |0> and applying a hadamard
 /// gate to qubit 2
 #[test]
-fn new_qubits_test() {
-    let reg_qubits = Register::new_qubits(&[
+fn from_qubits_test() {
+    let reg_qubits = {
+        let input_bits: &[Array2<math::c64>] = &[
         ndarray::array![[c64::new(1.0, 0.0)], [c64::new(0.0, 0.0)]],
         ndarray::array![[c64::new(0.0, 0.0)], [c64::new(1.0, 0.0)]],
         ndarray::array![
             [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)],
             [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)]
         ],
-    ]);
+    ];
+        Register::try_from_qubits(input_bits).expect("Incorrect input qubits")
+    };
     let mut reg = Register::new(&[false, true, false]);
     reg.apply(&operation::hadamard(2));
     assert_eq!(reg, reg_qubits);

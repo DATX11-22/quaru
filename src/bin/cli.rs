@@ -1,9 +1,5 @@
 use clap::Parser;
-use inquire::{
-    error::InquireError,
-    validator::Validation,
-    Select, Text,
-};
+use inquire::{error::InquireError, validator::Validation, Select, Text};
 
 use std::{collections::HashMap, fmt::Display, vec};
 
@@ -278,8 +274,7 @@ fn register_name_prompt(state: &State) -> Result<String, InquireError> {
         let s = &s.to_string();
         if qreg_names.contains(s) || creg_names.contains(s) {
             Ok(Validation::Invalid("Register name is already used".into()))
-        }
-        else {
+        } else {
             Ok(Validation::Valid)
         }
     };
@@ -291,37 +286,37 @@ fn register_name_prompt(state: &State) -> Result<String, InquireError> {
         .prompt()
 }
 
-/// Prompts the user for a quantum register in the specified `State`
-fn qreg_prompt(state: &mut State) -> Result<&mut Register, InquireError> {
-    let options: Vec<String> = state.q_regs.keys().cloned().collect();
+/// Prompts the user for a register in the specified register collection
+fn reg_prompt<T>(
+    message: String,
+    registers: &mut RegCollection<T>,
+) -> Result<&mut T, InquireError> {
+    let options: Vec<String> = registers.keys().cloned().collect();
 
     // Prompt for the quantum register. If there is only one then we don't need to
     // display the prompt.
     let choice = if options.len() == 1 {
         options[0].clone()
     } else {
-        Select::new("Select a quantum register: ", options).prompt()?
+        Select::new(&message, options).prompt()?
     };
 
-    state
-        .q_regs
+    registers
         .get_mut(&choice)
         .ok_or(InquireError::InvalidConfiguration(
             "Invalid quantum register".to_string(),
         ))
 }
 
-// /// Prompts the user for a classical register in the specified `State`
-// fn creg_prompt(state: &mut State) -> Result<&mut Vec<bool>, InquireError> {
-//     let options: Vec<&String> = state.c_regs.keys().collect();
-//     let choice = Select::new("Select a classical register: ", options).prompt()?;
-//     state
-//         .c_regs
-//         .get_mut(choice)
-//         .ok_or(InquireError::InvalidConfiguration(
-//             "Invalid classical register".to_string(),
-//         ))
-// }
+/// Prompts the user for a quantum register in the specified register collection
+fn qreg_prompt(registers: &mut QRegCollection) -> Result<&mut Register, InquireError> {
+    reg_prompt("Select quantum register".to_string(), registers)
+}
+
+/// Prompts the user for a quantum register in the specified register collection
+fn creg_prompt(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, InquireError> {
+    reg_prompt("Select classical register".to_string(), registers)
+}
 
 /// Given a register size `size`, prompts the user for a unary operation and a target qubit and
 /// returns the result containing an operation.
@@ -377,7 +372,8 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
 /// # Panics
 /// Panics if an error occurs while selecting an operation or when the operation is applied.
 fn handle_apply(state: &mut State) {
-    let reg = qreg_prompt(state).expect("Problem encountered when selecting a quantum register");
+    let reg = qreg_prompt(&mut state.q_regs)
+        .expect("Problem encountered when selecting a quantum register");
 
     let op_type =
         operation_prompt(reg.size()).expect("Problem encountered during operation type selection");
@@ -398,7 +394,8 @@ fn handle_apply(state: &mut State) {
 /// # Panics
 /// Panics if an error occurs while selecting an index.
 fn handle_measure(state: &mut State) {
-    let reg = qreg_prompt(state).expect("Problem encountered when selecting a quantum register");
+    let reg = qreg_prompt(&mut state.q_regs)
+        .expect("Problem encountered when selecting a quantum register");
 
     let index = qubit_prompt(["target"], reg.size())
         .expect("Problem encountered when selecting a qubit")[0];
@@ -409,9 +406,32 @@ fn handle_measure(state: &mut State) {
 
 /// Given a simulator state `state`, prompts for and prints an overview of a register state.
 fn handle_show(state: &mut State) {
-    let reg = qreg_prompt(state).expect("Problem encountered when selecting a quantum register");
-    println!("Register of size: {}", reg.size());
-    reg.print_state();
+    // Prompt for the type of register to show, or default to one if the other is empty
+    let reg_type = if state.q_regs.is_empty() {
+        RegisterType::Classical
+    } else if state.c_regs.is_empty() {
+        RegisterType::Quantum
+    } else {
+        register_type_prompt().expect("Problem encountered when selecting a register type")
+    };
+
+    // Print the registers state
+    match reg_type {
+        RegisterType::Classical => {
+            let reg = creg_prompt(&mut state.c_regs)
+                .expect("Problem encountered when selecting a quantum register");
+
+            println!("Classical register of size: {}", reg.len());
+            println!("{:?}", reg);
+        }
+        RegisterType::Quantum => {
+            let reg = qreg_prompt(&mut state.q_regs)
+                .expect("Problem encountered when selecting a quantum register");
+
+            println!("Quantum register of size: {}", reg.size());
+            reg.print_state();
+        }
+    }
 }
 
 /// Given a simulator state `state`, prompts the user to create a quantum or classical
@@ -421,8 +441,8 @@ fn handle_create(state: &mut State) {
         register_type_prompt().expect("Problem encountered when selecting a register type");
 
     // Prompt for register name
-    let reg_name = register_name_prompt(state)
-        .expect("Problem encountered when entering a register name");
+    let reg_name =
+        register_name_prompt(state).expect("Problem encountered when entering a register name");
 
     // Prompt for register size
     let reg_size = size_prompt(4).expect("Problem encountered when selecting register size");
@@ -449,10 +469,14 @@ struct Args {
     size: Option<usize>,
 }
 
+type RegCollection<T> = HashMap<String, T>;
+type QRegCollection = RegCollection<Register>;
+type CRegCollection = RegCollection<Vec<bool>>;
+
 /// The state of the simulator
 struct State {
-    q_regs: HashMap<String, Register>,
-    c_regs: HashMap<String, Vec<bool>>,
+    q_regs: QRegCollection,
+    c_regs: CRegCollection,
 }
 
 /// Runs the Quaru shell.

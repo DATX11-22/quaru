@@ -17,6 +17,7 @@ pub struct Registers {
 }
 
 /// The different types of errors that can occur when running an openqasm program.
+#[derive(Debug)]
 pub enum OpenQASMError {
     /// Error when parsing the openqasm file. The problem can be with reading the file,
     /// parsing the tokens, syntax or semantics.
@@ -45,8 +46,8 @@ pub enum OpenQASMError {
 /// let registers = openqasm::run_openqasm(Path::new("filepath.qasm"));
 /// ```
 pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
-    let program = openqasm::parse_openqasm(openqasm_file)
-        .map_err(OpenQASMError::OpenQASMParseError)?;
+    let program =
+        openqasm::parse_openqasm(openqasm_file).map_err(OpenQASMError::OpenQASMParseError)?;
 
     // Initializes the registers defined in the openqasm file. All registers are initialized
     // to 0.

@@ -1,9 +1,9 @@
 use clap::Parser;
-use inquire::{error::InquireError, Select};
-
-use std::{fmt::Display, vec};
+use inquire::{error::InquireError, validator::Validation, Select, Text};
+use std::{collections::HashMap, fmt::Display, path::Path, vec};
 
 use quaru::{
+    openqasm,
     operation::{self, Operation},
     register::Register,
 };
@@ -13,12 +13,26 @@ enum Choice {
     Show,
     Apply,
     Measure,
+    Create,
+    OpenQASM,
     Exit,
 }
 
 impl Choice {
-    fn choices() -> Vec<Choice> {
-        vec![Choice::Show, Choice::Apply, Choice::Measure, Choice::Exit]
+    /// The possible actions the user can take. Which actions are available depend on the state
+    /// of the simulation.
+    fn choices(state: &State) -> Vec<Choice> {
+        let mut choices = Vec::new();
+        if !state.q_regs.is_empty() || !state.c_regs.is_empty() {
+            choices.append(&mut vec![Choice::Show]);
+        }
+        if !state.q_regs.is_empty() {
+            choices.append(&mut vec![Choice::Apply, Choice::Measure]);
+        }
+
+        choices.append(&mut vec![Choice::Create, Choice::OpenQASM, Choice::Exit]);
+
+        choices
     }
 }
 
@@ -28,6 +42,8 @@ impl Display for Choice {
             Choice::Apply => write!(f, "Apply"),
             Choice::Measure => write!(f, "Measure"),
             Choice::Show => write!(f, "Show"),
+            Choice::Create => write!(f, "Create register"),
+            Choice::OpenQASM => write!(f, "Run OpenQASM program"),
             Choice::Exit => write!(f, "Exit"),
         }
     }
@@ -145,8 +161,11 @@ fn size_prompt(max: usize) -> Result<usize, InquireError> {
 /// Choices include:
 /// - Applying an operation
 /// - Showing the register state
-fn init_prompt() -> Result<Choice, InquireError> {
-    let options = Choice::choices();
+/// - Measuring a qubit
+/// - Creating a register
+/// - Exiting the application
+fn init_prompt(state: &State) -> Result<Choice, InquireError> {
+    let options = Choice::choices(state);
     Select::new("Select an option: ", options).prompt()
 }
 
@@ -196,7 +215,7 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
 /// # Panics
 ///
 /// Panics if `N` is greater than `size`.
-fn qubit_prompt<const N: usize>(
+fn indicies_prompt<const N: usize>(
     target_names: [&str; N],
     size: usize,
 ) -> Result<Vec<usize>, InquireError> {
@@ -208,6 +227,7 @@ fn qubit_prompt<const N: usize>(
     let options: Vec<usize> = (0..size).collect();
     let mut targets: Vec<usize> = Vec::new();
 
+    // Prompts the user to select an index for each of the elements in `target_names`
     for name in target_names.iter().take(N) {
         let target = Select::new(
             format!("Select a {name} index: ").as_str(),
@@ -218,11 +238,130 @@ fn qubit_prompt<const N: usize>(
                 .collect(),
         )
         .prompt()?;
-        targets.push(target);
+
         // removes the selected target to avoid duplicate targets
+        targets.push(target);
     }
 
     Ok(targets)
+}
+
+#[derive(Debug)]
+enum RegisterType {
+    Classical,
+    Quantum,
+}
+
+impl Display for RegisterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
+/// Prompts the user for a type of register. Either `Quantum` or `Classical`
+fn register_type_prompt() -> Result<RegisterType, InquireError> {
+    Select::new(
+        "Select the register type",
+        vec![RegisterType::Quantum, RegisterType::Classical],
+    )
+    .prompt()
+}
+
+/// Prompts the user for a register name. The name cannot be empty and must
+/// not already be used in the supplied `State`.
+fn register_name_prompt(state: &State) -> Result<String, InquireError> {
+    // Validator that makes sure that the supplied register name is not empty
+    let empty_str_validator = |s: &str| {
+        if s.len() > 0 {
+            Ok(Validation::Valid)
+        } else {
+            Ok(Validation::Invalid("Register name cannot be empty".into()))
+        }
+    };
+
+    // Validator that makes sure that the supplied register name is not already
+    // used by another register
+    let qreg_names: Vec<String> = state.q_regs.keys().cloned().collect();
+    let creg_names: Vec<String> = state.q_regs.keys().cloned().collect();
+    let no_duplicate_validator = move |s: &str| {
+        let s = &s.to_string();
+        if qreg_names.contains(s) || creg_names.contains(s) {
+            Ok(Validation::Invalid("Register name is already used".into()))
+        } else {
+            Ok(Validation::Valid)
+        }
+    };
+
+    // Prompt for register name
+    Text::new("Register name: ")
+        .with_validator(empty_str_validator)
+        .with_validator(no_duplicate_validator)
+        .prompt()
+}
+
+/// Prompts the user for a register in the specified register collection
+///
+/// # Arguments
+/// * `message` - The message which is displayed during the prompt
+/// * `registers` - The collection of registers to choose from
+/// * `autoselect` - Whether to autoselect a register if there is only one
+/// * `skipable` - Whether the prompt should be skipable by pressing escape.
+///     If the prompt is skipped an `InquireError::OperationCanceled` is returned.
+fn reg_prompt<T>(
+    message: String,
+    registers: &mut RegCollection<T>,
+    autoselect: bool,
+    skipable: bool,
+) -> Result<&mut T, InquireError> {
+    let options: Vec<String> = registers.keys().cloned().collect();
+
+    // Prompt for the quantum register. If there is only one then we don't need to
+    // display the prompt.
+    let choice = if options.len() == 1 && autoselect {
+        options[0].clone()
+    } else if skipable {
+        Select::new(&message, options)
+            .prompt_skippable()?
+            .ok_or(InquireError::OperationCanceled)?
+    } else {
+        Select::new(&message, options).prompt()?
+    };
+
+    registers
+        .get_mut(&choice)
+        .ok_or(InquireError::InvalidConfiguration(
+            "Invalid quantum register".to_string(),
+        ))
+}
+
+/// Prompts the user for a quantum register in the specified register collection
+fn qreg_prompt(registers: &mut QRegCollection) -> Result<&mut Register, InquireError> {
+    reg_prompt(
+        "Select quantum register".to_string(),
+        registers,
+        true,
+        false,
+    )
+}
+
+/// Prompts the user for a quantum register in the specified register collection
+fn creg_prompt(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, InquireError> {
+    reg_prompt(
+        "Select classical register".to_string(),
+        registers,
+        true,
+        false,
+    )
+}
+
+/// Prompts the user for a quantum register in the specified register collection, skippable
+fn creg_prompt_skippable(registers: &mut CRegCollection) -> Result<&mut Vec<bool>, InquireError> {
+    reg_prompt(
+        "Select classical register (ESC to cancel)".to_string(),
+        registers,
+        false,
+        true,
+    )
 }
 
 /// Given a register size `size`, prompts the user for a unary operation and a target qubit and
@@ -232,15 +371,10 @@ fn qubit_prompt<const N: usize>(
 ///
 /// Panics if an error occurs during any of the prompts or if `size` == 0.
 fn get_unary(size: usize) -> Result<Operation, InquireError> {
-    let unary_op = match unary_prompt() {
-        Ok(op) => op,
-        Err(e) => panic!("Problem encountered when selecting unary operation: {e:?}"),
-    };
+    let unary_op = unary_prompt().expect("Problem encountered when selecting unary operation");
 
-    let target = match qubit_prompt(unary_operation_target_name(&unary_op), size) {
-        Ok(ts) => ts[0],
-        Err(e) => panic!("Problem encountered when selecting index: {e:?}"),
-    };
+    let target = indicies_prompt(unary_operation_target_name(&unary_op), size)
+        .expect("Problem encountered when selecting index")[0];
 
     let op = match unary_op {
         UnaryOperation::Identity => operation::identity(target),
@@ -260,17 +394,11 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 /// # Panics
 ///
 /// Panics if an error occurs during any of the prompts or if `size` < 2.
-/// TODO: also panics if targets are not in ascending order.
 fn get_binary(size: usize) -> Result<Operation, InquireError> {
-    let binary_op = match binary_prompt() {
-        Ok(op) => op,
-        Err(e) => panic!("Problem encountered when selecting binary operation: {e:?}"),
-    };
+    let binary_op = binary_prompt().expect("Problem encountered when selecting binary operation");
 
-    let targets = match qubit_prompt(binary_operation_target_names(&binary_op), size) {
-        Ok(ts) => ts,
-        Err(e) => panic!("Problem encountered when selecting index: {e:?}"),
-    };
+    let targets = indicies_prompt(binary_operation_target_names(&binary_op), size)
+        .expect("Problem encountered when selecting index");
 
     let a = targets[0];
     let b = targets[1];
@@ -283,16 +411,18 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
     Ok(op)
 }
 
-/// Given a mutable register `reg` prompts the user for an operation and applies it to the
-/// register.
+/// Given a mutable simulator state `state` prompts the user for an operation and applies it to a
+/// register in the simulator state.
 ///
 /// # Panics
-/// Panics if an error occurs while selecting an operation or when the operation is applied.
-fn handle_apply(reg: &mut Register) {
-    let op_type = match operation_prompt(reg.size()) {
-        Ok(op_type) => op_type,
-        Err(e) => panic!("Problem encountered during operation type selection: {e:?}"),
-    };
+/// Panics if there are no quantum registers in `state`, or if an error occurs while selecting an operation or
+/// when the operation is applied.
+fn handle_apply(state: &mut State) {
+    let reg = qreg_prompt(&mut state.q_regs)
+        .expect("Problem encountered when selecting a quantum register");
+
+    let op_type =
+        operation_prompt(reg.size()).expect("Problem encountered during operation type selection");
 
     let result = match op_type {
         OperationType::Unary => get_unary(reg.size()),
@@ -305,24 +435,125 @@ fn handle_apply(reg: &mut Register) {
     };
 }
 
-/// Given a mutable register `reg` prompts the user for an index and measures the qubit at that
-/// index, printing the result.
+/// Given a mutable simulator state `state` prompts the user for a qubit and measures it, printing the result.
 ///
 /// # Panics
-/// Panics if an error occurs while selecting an index.
-fn handle_measure(reg: &mut Register) {
-    let index = match qubit_prompt(["target"], reg.size()) {
-        Ok(ts) => ts[0],
-        Err(e) => panic!("Problem encountered when selecting a qubit: {e:?}"),
-    };
-    let result = reg.measure(index);
-    println!("Qubit at index {index} measured {result}");
+/// Panics if an error occurs during the prompts, or if there are no quantum registers in `state`.
+fn handle_measure(state: &mut State) {
+    let q_reg = qreg_prompt(&mut state.q_regs)
+        .expect("Problem encountered when selecting a quantum register");
+
+    let q_index = indicies_prompt(["qubit"], q_reg.size())
+        .expect("Problem encountered when selecting a qubit")[0];
+
+    let result = q_reg.measure(q_index);
+
+    if let Ok(c_reg) = creg_prompt_skippable(&mut state.c_regs) {
+        let c_index = indicies_prompt(["bit"], c_reg.len())
+            .expect("Problem encountered when selecting a classical bit")[0];
+
+        c_reg[c_index] = result;
+    }
+
+    println!("Qubit at measured {result}");
 }
 
-/// Given a register `reg` prints an overview of the register state.
-fn handle_show(reg: &Register) {
-    println!("Register of size: {}", reg.size());
-    reg.print_state();
+/// Given a simulator state `state`, prompts for and prints an overview of a register state.
+///
+/// # Panics
+/// Panics if there are no registers in `state`, or if an error occurs during one of the prompts.
+fn handle_show(state: &mut State) {
+    // Prompt for the type of register to show, or default to one if the other is empty
+    let reg_type = if state.q_regs.is_empty() {
+        RegisterType::Classical
+    } else if state.c_regs.is_empty() {
+        RegisterType::Quantum
+    } else {
+        register_type_prompt().expect("Problem encountered when selecting a register type")
+    };
+
+    // Print the registers state
+    match reg_type {
+        RegisterType::Classical => {
+            let reg = creg_prompt(&mut state.c_regs)
+                .expect("Problem encountered when selecting a quantum register");
+
+            println!("Classical register of size: {}", reg.len());
+            println!("{:?}", reg);
+        }
+        RegisterType::Quantum => {
+            let reg = qreg_prompt(&mut state.q_regs)
+                .expect("Problem encountered when selecting a quantum register");
+
+            println!("Quantum register of size: {}", reg.size());
+            reg.print_state();
+        }
+    }
+}
+
+/// Given a simulator state `state`, prompts the user to create a quantum or classical
+///
+/// # Panics
+/// Panics if an error occurs during one of the prompts.
+fn handle_create(state: &mut State) {
+    // Promt for register type
+    let reg_type =
+        register_type_prompt().expect("Problem encountered when selecting a register type");
+
+    // Prompt for register name
+    let reg_name =
+        register_name_prompt(state).expect("Problem encountered when entering a register name");
+
+    // Prompt for register size
+    let reg_size = size_prompt(4).expect("Problem encountered when selecting register size");
+    let reg_state = &[false].repeat(reg_size);
+
+    // Construct register
+    match reg_type {
+        RegisterType::Classical => {
+            state.c_regs.insert(reg_name, reg_state.clone());
+        }
+        RegisterType::Quantum => {
+            let reg = Register::new(reg_state.as_slice());
+            state.q_regs.insert(reg_name, reg);
+        }
+    }
+}
+
+/// Given a simulator state `state`, prompts the user for a file containing OpenQASM code, runs the code
+/// and updates `state` accordingly
+///
+/// # Panics
+/// The openqasm program is validated before it is returned, so this should never panic
+/// due to the OpenQASM code. However, it can still panic due to some error when prompting.
+fn handle_openqasm(state: &mut State) {
+    // Validator to make sure that the supplied filepath links to a valid
+    // OpenQASM program.
+    let openqasm_validator = |s: &str| {
+        let path = Path::new(s);
+        match openqasm::run_openqasm(path) {
+            Ok(_) => Ok(Validation::Valid),
+            Err(e) => Ok(Validation::Invalid(
+                format!("Parsing error: {:?}", e).into(),
+            )),
+        }
+    };
+
+    // Prompt the user for a filepath to an OpenQASM program, makes sure that
+    // the filepath leads to a valid OpenQASM program before returning.
+    let filepath = Text::new("OpenQASM file path:")
+        .with_validator(openqasm_validator)
+        .prompt()
+        .expect("Problem encountered when specifying filepath");
+
+    // Run the openqasm program, the file should already be validated so this should not
+    // panic
+    let res = openqasm::run_openqasm(Path::new(&filepath))
+        .expect("Problem encountered when running OpenQASM program");
+
+    // Add the result from the openqasm file to the state of the simulation
+    state.q_regs.extend(res.qregs);
+    state.c_regs.extend(res.cregs);
 }
 
 /// A cli-based ideal quantum computer simulator
@@ -334,40 +565,50 @@ struct Args {
     size: Option<usize>,
 }
 
+type RegCollection<T> = HashMap<String, T>;
+type QRegCollection = RegCollection<Register>;
+type CRegCollection = RegCollection<Vec<bool>>;
+
+/// The state of the simulator
+struct State {
+    q_regs: QRegCollection,
+    c_regs: CRegCollection,
+}
+
 /// Runs the Quaru shell.
 fn main() {
     let args = Args::parse();
 
     println!("{QUARU}");
-    // size arg is optional
-    let size = if let Some(n) = args.size {
-        n
-    } else {
-        // 4 max gives a nice wrapping, argument allows for bigger
-        match size_prompt(4) {
-            Ok(size) => size,
-            Err(e) => panic!("Problem when selecting a register size: {e:?}"),
-        }
+
+    // Initialize the state of the simulator
+    let mut state = State {
+        q_regs: HashMap::new(),
+        c_regs: HashMap::new(),
     };
 
-    let init_state = &[false].repeat(size);
-    let mut reg = Register::new(init_state.as_slice());
+    // Size arg is optional. Create quantum register on startup if size arg is supplied.
+    if let Some(n) = args.size {
+        // Create initial register
+        let init_state = &[false].repeat(n);
+        let reg = Register::new(init_state.as_slice());
+        state.q_regs.insert("qreg0".to_string(), reg);
+    }
 
-    // clear terminal
+    // Clear terminal
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
-        let init = match init_prompt() {
-            Ok(choice) => choice,
-            Err(e) => panic!("Problem selecting an option: {e:?}"),
-        };
+        let init = init_prompt(&state).expect("Problem selecting an option");
 
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
         match init {
-            Choice::Show => handle_show(&reg),
-            Choice::Apply => handle_apply(&mut reg),
-            Choice::Measure => handle_measure(&mut reg),
+            Choice::Show => handle_show(&mut state),
+            Choice::Apply => handle_apply(&mut state),
+            Choice::Measure => handle_measure(&mut state),
+            Choice::Create => handle_create(&mut state),
+            Choice::OpenQASM => handle_openqasm(&mut state),
             Choice::Exit => break,
         };
     }

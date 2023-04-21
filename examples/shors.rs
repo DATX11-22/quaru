@@ -23,6 +23,8 @@ struct Args {
 }
 
 fn main() {
+    env_logger::init();
+
     let args = Args::parse();
     let number = args.number;
     let n_times = args.n_times;

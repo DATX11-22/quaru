@@ -97,10 +97,10 @@ pub fn get_state_of_qubit(
 
 #[cfg(test)]
 mod tests {
-    use std::f64::consts;
     use ndarray::array;
     use quaru::math::{c64, ComplexFloat};
     use rand::Rng;
+    use std::f64::consts;
 
     #[test]
     fn quantum_teleportation() {
@@ -110,14 +110,14 @@ mod tests {
             assert!(is_equal);
         }
     }
-    //genarate valid qubit from two random angles theta and phi	
+    //genarate valid qubit from two random angles theta and phi
     fn gen_qubit() -> ndarray::Array2<c64> {
         //genarate random angles
         let theta = rand::thread_rng().gen_range(0.0..=std::f64::consts::PI);
-        let phi   = rand::thread_rng().gen_range(0.0..2.0 * std::f64::consts::PI);
+        let phi = rand::thread_rng().gen_range(0.0..2.0 * std::f64::consts::PI);
         //create amplitudes of qubit
-        let alpha : c64 = c64::new((theta / 2.0).cos(), 0.0);
-        let beta  : c64 = (theta / 2.0).sin() * consts::E.powc(c64::new(0.0, phi));
+        let alpha: c64 = c64::new((theta / 2.0).cos(), 0.0);
+        let beta: c64 = (theta / 2.0).sin() * consts::E.powc(c64::new(0.0, phi));
         //check if the qubit is valid
         let prob = alpha.norm().powi(2) + beta.norm().powi(2);
         assert!((prob - 1.0).abs() < 1e-10);

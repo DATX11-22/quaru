@@ -272,7 +272,7 @@ fn register_type_prompt() -> Result<RegisterType, InquireError> {
 fn register_name_prompt(state: &State) -> Result<String, InquireError> {
     // Validator that makes sure that the supplied register name is not empty
     let empty_str_validator = |s: &str| {
-        if s.len() > 0 {
+        if !s.is_empty() {
             Ok(Validation::Valid)
         } else {
             Ok(Validation::Invalid("Register name cannot be empty".into()))

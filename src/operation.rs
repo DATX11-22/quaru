@@ -26,9 +26,9 @@
 //! let identity: Operation = identity(0);
 //! ```
 use crate::math::{c64, int_to_state, real_arr_to_complex};
+use ndarray::linalg;
 use ndarray::{array, Array2};
 use std::{f64::consts, vec};
-use ndarray::linalg;
 
 // Naming?
 pub trait QuantumOperation {
@@ -110,10 +110,7 @@ pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
     for t in targets.iter().take(len).skip(1) {
         matrix = linalg::kron(&hadamard(*t).matrix(), &matrix);
     }
-    Operation {
-        matrix,
-        targets,
-    }
+    Operation { matrix, targets }
 }
 
 /// Returns the controlled NOT operation based on the given `control` qubit and
@@ -148,10 +145,7 @@ pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Opera
             matrix[(r, c)] = res_state[(r, 0)];
         }
     }
-    Operation {
-        matrix,
-        targets,
-    }
+    Operation { matrix, targets }
 }
 
 /// Create a controlled version of an operation.
@@ -159,7 +153,7 @@ pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Opera
 /// in the bottom right corner and add an identity matrix in the top left corner.
 pub fn to_controlled(op: Operation, control: usize) -> Operation {
     let old_sz = 1 << op.arity();
-    let mut matrix = Array2::zeros((2*old_sz, 2*old_sz));
+    let mut matrix = Array2::zeros((2 * old_sz, 2 * old_sz));
     for i in 0..old_sz {
         matrix[(i, i)] = c64::new(1.0, 0.0);
     }
@@ -172,10 +166,7 @@ pub fn to_controlled(op: Operation, control: usize) -> Operation {
 
     // One more target bit: the control.
     targets.push(control);
-    Operation {
-        matrix,
-        targets,
-    }
+    Operation { matrix, targets }
 }
 
 /// Returns the swap operation for the given target qubits.
@@ -294,9 +285,11 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
 
 #[cfg(test)]
 mod tests {
-    use ndarray::Array2;
+    use super::{
+        cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumOperation,
+    };
     use crate::math::c64;
-    use super::{cnot, cnx, hadamard, identity, not, QuantumOperation, pauli_y, pauli_z, phase, swap};
+    use ndarray::Array2;
 
     fn all_ops() -> Vec<Box<dyn QuantumOperation>> {
         vec![

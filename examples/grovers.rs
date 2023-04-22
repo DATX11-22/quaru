@@ -258,7 +258,6 @@ mod tests {
             let regsize = ((target + 1) as f64).log2().ceil() as usize;
             let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
             let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
-            let diffuser = super::diffusion_operation(reg.size());
             let oracle = super::oracle_operation(reg.size(), target);
             reg.apply_all(&hadamard(0));
             reg.apply(&oracle);

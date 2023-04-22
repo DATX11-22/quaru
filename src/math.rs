@@ -1,9 +1,8 @@
 //! The `math` module includes functions for using more easily using complex numbers.
 
 use ndarray::{array, Array2};
-use num::Complex;
 pub use num::complex::ComplexFloat;
-
+use num::Complex;
 
 /// Given a boolean value, returns the qubit vector representation of
 /// that value.

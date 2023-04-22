@@ -1,13 +1,13 @@
-use std::f64::consts;
 use clap::Parser;
 use colored::Colorize;
 use log::debug;
 use ndarray::Array2;
 use num::traits::Pow;
-use quaru::math::{limit_denominator, modpow, c64, ComplexFloat};
+use quaru::math::{c64, limit_denominator, modpow, ComplexFloat};
 use quaru::operation::Operation;
 use quaru::{operation, register::Register};
 use rand::Rng;
+use std::f64::consts;
 use stopwatch::Stopwatch;
 
 #[derive(Parser, Debug)]
@@ -134,7 +134,7 @@ fn shors(number: u32) -> u32 {
                 // At this point, both factor1 and factor2 are guaranteed to be
                 // non-trivial factors of N, so we can return either one.
                 // It is also be the case that factor1 * factor2 = N.
-                
+
                 return factor1;
             } else {
                 // We end up here if {gcd(k-1,N), gcd(k+1,N)} = {1, N}.

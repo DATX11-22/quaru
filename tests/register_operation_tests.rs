@@ -1,11 +1,11 @@
 extern crate proptest;
 use std::ops::Range;
 
-use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
+use ndarray::{array, Array2, ArrayBase, Dim, OwnedRepr};
 use proptest::prelude::*;
 use proptest::sample::{select, Select};
+use quaru::math::{self, c64};
 use quaru::operation::{self, cnx, Operation};
-use quaru::math::{c64, equal_qubits, to_qbit_vector, self};
 use quaru::register::Register;
 use std::f64::consts;
 
@@ -25,13 +25,13 @@ fn measure_on_zero_state_gives_false() {
 fn from_qubits_test() {
     let reg_qubits = {
         let input_bits: &[Array2<math::c64>] = &[
-        ndarray::array![[c64::new(1.0, 0.0)], [c64::new(0.0, 0.0)]],
-        ndarray::array![[c64::new(0.0, 0.0)], [c64::new(1.0, 0.0)]],
-        ndarray::array![
-            [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)],
-            [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)]
-        ],
-    ];
+            ndarray::array![[c64::new(1.0, 0.0)], [c64::new(0.0, 0.0)]],
+            ndarray::array![[c64::new(0.0, 0.0)], [c64::new(1.0, 0.0)]],
+            ndarray::array![
+                [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)],
+                [c64::new(1.0 / (2.0_f64).sqrt(), 0.0)]
+            ],
+        ];
         Register::try_from_qubits(input_bits).expect("Incorrect input qubits")
     };
     let mut reg = Register::new(&[false, true, false]);
@@ -251,20 +251,14 @@ pub struct Qubit(Array2<c64>);
 impl Arbitrary for Qubit {
     type Parameters = ();
     type Strategy = Select<Qubit>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         let frac = consts::FRAC_1_SQRT_2;
         select(vec![
             Qubit(array![[c64::new(1.0, 0.0)], [c64::new(0.0, 0.0)]]),
             Qubit(array![[c64::new(0.0, 0.0)], [c64::new(1.0, 0.0)]]),
             Qubit(array![[c64::new(frac, 0.0)], [c64::new(frac, 0.0)]]),
-            Qubit(array![
-                [c64::new(frac, 0.0)],
-                [c64::new(-frac, 0.0)]
-            ]),
-            Qubit(array![
-                [c64::new(frac, 0.0)],
-                [c64::new(0.0, -frac)]
-            ]),
+            Qubit(array![[c64::new(frac, 0.0)], [c64::new(-frac, 0.0)]]),
+            Qubit(array![[c64::new(frac, 0.0)], [c64::new(0.0, -frac)]]),
         ])
     }
 }

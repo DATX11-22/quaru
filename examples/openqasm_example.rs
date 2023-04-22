@@ -1,5 +1,5 @@
-use std::path::Path;
 use quaru::openqasm;
+use std::path::Path;
 
 fn main() {
     let example_dir = Path::new(file!()).parent().unwrap();

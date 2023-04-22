@@ -1,10 +1,12 @@
 //! Code related to running openqasm programs on the simulator.
 
-use crate::{operation::{self, Operation}, register::Register, math::c64};
-use ndarray::array;
-use openqasm_parser::openqasm::{
-    self, BasicOp, OpenQASMError as OpenQASMParseError,
+use crate::{
+    math::c64,
+    operation::{self, Operation},
+    register::Register,
 };
+use ndarray::array;
+use openqasm_parser::openqasm::{self, BasicOp, OpenQASMError as OpenQASMParseError};
 use std::{collections::HashMap, path::Path};
 
 /// A tuple containing some quantum registers and classical registers
@@ -89,7 +91,9 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
                     .qregs
                     .get_mut(&q.0)
                     .expect("Register does not exist?");
-                qreg.apply(&u(p1 as f64, p2 as f64, p3 as f64, q.1).expect("Could not create U operation"));
+                qreg.apply(
+                    &u(p1 as f64, p2 as f64, p3 as f64, q.1).expect("Could not create U operation"),
+                );
             }
             BasicOp::CX(q1, q2) => {
                 if q1.0 != q2.0 {

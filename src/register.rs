@@ -111,7 +111,7 @@ impl Register {
             total_prob += values.norm_sqr();
         }
         //Chech if total prob is 1
-        total_prob.abs() < 0.000001 
+        total_prob.abs() < 0.000001
     }
 
     /// Checks that input qubit is correct

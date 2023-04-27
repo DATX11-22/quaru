@@ -19,23 +19,33 @@ The simulator features a number of examples located under the /examples director
 To run an example, run the following command: `<br/>`
 `cargo run --example <filename>`
 
+Here are all available examples: 
+
+* `grovers`
+* `openquasm_example`
+* `quantum_teleportation`
+* `shors`
+* `superdense_coding`
+
 Some examples accept parameters. To provide these, use: `<br/>`
 `cargo run --example <filename> -- --flag <value>`
 
-Here is a list of all parameters for each example:
+Here is a list of all parameters for each example that accepts them:
 
 * Shors
+
   * Number to be factorized: `--number <value>`
   * How many times to run: `--n-times <value>`
   * If you want to print debugging messages from the algorithm you need to change  an enviroment variable
     * For linux: `RUST_LOG=debug cargo run --example shors`
     * For windows: `$env:RUST_LOG="debug"; cargo run --example shors; $env:RUST_LOG="off"`
 * Grovers
+
   * State to search for: `--target <value>`
   * Run for statistics of different iteration formulas: `--statistics`
 * Quantum teleportation
-  * here there are 4 paramaters, `a,b,c` and `d`. These correspond to the representation `[a+bi, c+di]` of the qubit to be teleported
 
+  * here there are 4 paramaters, `a,b,c` and `d`. These correspond to the representation `[a+bi, c+di]` of the qubit to be teleported
 
 For example: `<br/>`
 `cargo run --example grovers -- --target 64`

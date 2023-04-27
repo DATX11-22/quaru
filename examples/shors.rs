@@ -218,8 +218,10 @@ pub fn qft(n: usize) -> Option<Operation> {
 
 #[cfg(test)]
 mod tests {
-    use quaru::math::{equal_qubits, modpow};
+    use quaru::math::{equal_qubits, modpow, c64};
     use quaru::register::Register;
+    use quaru::operation::Operation;
+    use ndarray::{Array2, array, linalg};
 
     #[test]
     fn period_finder_working() {
@@ -297,6 +299,43 @@ mod tests {
                         assert!(equal_qubits(reg.state, answer.state));
                     }
                 }
+            }
+        }
+    }
+
+    /// Add the constant a to an integer in fourier space, mod 2^n.
+    pub fn add_operation(a: usize, targets: Vec<usize>) -> Operation {
+        let n = targets.len();
+        let mut matrix = Array2::eye(1);
+        for i in 0..n {
+            // The transformation for the ith qubit.
+            let em = array![
+                [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+                [c64::new(0.0, 0.0), c64::from_polar(1.0, std::f64::consts::PI/2_f64.powi(i as i32) * a as f64)]
+            ];
+
+            matrix = linalg::kron(&matrix, &em);
+        }
+
+        Operation::new(matrix, targets).expect("Failed to create add operation")
+    }
+
+    #[test]
+    fn qft_add(){
+        let n = 5;
+        
+        let qft_gate = super::qft(n).expect("Creation of qft failed");
+        for a in 0..50 {
+            for b in 0..50 {
+                // Test that ADD(a, QFT(b)) = QFT(a+b)
+                let mut reg1 = Register::from_int(n, b%(1<<n));
+                reg1.apply(&qft_gate);
+                reg1.apply(&add_operation(a, (0..n).collect()));
+
+                let mut reg2 = Register::from_int(n, (a+b)%(1<<n));
+                reg2.apply(&qft_gate);
+
+                assert!(equal_qubits(reg1.state, reg2.state));
             }
         }
     }

@@ -139,6 +139,7 @@ fn shors(number: u32, fast: bool) -> u32 {
                 // At this point, both factor1 and factor2 are guaranteed to be
                 // non-trivial factors of N, so we can return either one.
                 // It is also be the case that factor1 * factor2 = N.
+                // BUG: find_period is not 100% accurate
 
                 return factor1;
             } else {

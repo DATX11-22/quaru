@@ -145,6 +145,83 @@ fn binary_operation_target_names(op: &BinaryOperation) -> [&str; 2] {
     }
 }
 
+/// An operation with an identifier.
+pub struct IdentfiableOperation {
+    identifier: OperationIdentifier,
+    operation: Operation,
+}
+
+impl IdentfiableOperation {
+    fn new(identifier: OperationIdentifier, operation: Operation) -> IdentfiableOperation {
+        IdentfiableOperation {
+            identifier,
+            operation,
+        }
+    }
+    /// Given a target returns an identifiable Identity operation.
+    pub fn identity(target: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Identity, operation::identity(target))
+    }
+
+    /// Given a target returns an identifiable Hadamard operation.
+    pub fn hadamard(target: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Hadamard, operation::hadamard(target))
+    }
+
+    /// Given a target returns an identifiable Phase operation.
+    pub fn phase(target: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Phase, operation::phase(target))
+    }
+
+    /// Given a target returns an identifiable NOT operation.
+    pub fn not(target: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Not, operation::not(target))
+    }
+
+    /// Given a target returns an identifiable Pauli Y operation.
+    pub fn pauli_y(target: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::PauliY, operation::pauli_y(target))
+    }
+
+    /// Given a target returns an identifiable Pauli Z operation.
+    pub fn pauli_z(target: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::PauliZ, operation::pauli_z(target))
+    }
+
+    /// Given a control and a target returns an identifiable CNOT operation.
+    pub fn cnot(control: usize, target: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::CNot, operation::cnot(control, target))
+    }
+
+    /// Given two targets returns an identifiable Swap operation.
+    pub fn swap(target_1: usize, target_2: usize) -> IdentfiableOperation {
+        Self::new(
+            OperationIdentifier::Swap,
+            operation::swap(target_1, target_2),
+        )
+    }
+}
+
+/// Identifier for available operations in the CLI.
+pub enum OperationIdentifier {
+    /// The Identity identifier.
+    Identity,
+    /// The Hadamard identifier.
+    Hadamard,
+    /// The Phase identifier.
+    Phase,
+    /// The Not identifier.
+    Not,
+    /// The Pauli Y identifier.
+    PauliY,
+    /// The Pauli Z identifier.
+    PauliZ,
+    /// The CNOT identifier.
+    CNot,
+    /// The Swap identifier.
+    Swap,
+}
+
 /// Given a usize `max` prompts the user for a register size and returns a result containing a size.
 ///
 /// # Panics

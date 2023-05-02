@@ -92,16 +92,20 @@ impl QuantumCircuit {
     }
 
     pub fn reduce_circuit_cancel_gates(&mut self) -> &mut Self {
+        //This function should maybe be called recursively
         //all real and symetric unitary gates cancel each other out
         let mut i = 0;
-        let ops = &self.operations;
+        let ops = &self.operations.clone();
         // let mut new_ops : Vec<Operation> = ops.clone();
         let mut new_ops : Vec<Operation> = Vec::new();
-        while i < ops.len()-1{
+        while i < ops.len(){
+            if i == ops.len() - 1 {
+                new_ops.push(ops[i].clone());
+                break;
+            }
             let j = i + 1;
             let op = &ops[i];
             let next_op = &ops[j];
-
             if op.matrix().iter().all(|x| x.im == 0.0) 
             && *op == *next_op
             {
@@ -112,7 +116,12 @@ impl QuantumCircuit {
             i+=1;
         }
         self.operations = new_ops;
+        if self.operations.len() == ops.len() || self.operations.len() <= 1{
+            return self;
+        }
+        self.reduce_circuit_cancel_gates();
         self
+
     }
     pub fn reduce_circuit_gates_with_same_targets(&mut self) -> &mut Self {
         let mut i= 0;
@@ -387,7 +396,7 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
 #[cfg(test)]
 mod tests {
     use super::{
-        cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumOperation,
+        cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumOperation, QuantumCircuit,
     };
     use crate::math::c64;
     use ndarray::Array2;
@@ -443,5 +452,61 @@ mod tests {
 
     fn matrix_is_equal(a: Array2<c64>, b: Array2<c64>, tolerance: f64) -> bool {
         (a - b).iter().all(|e| e.norm() < tolerance)
+    }
+
+
+
+    #[test]
+    fn test_two_pair_of_same_gates_cancel_with_one_pair_in_middle(){
+        let mut circuit = QuantumCircuit::new();
+
+        circuit.add_operation(hadamard(0));
+
+        circuit.add_operation(cnot(0, 1));
+        circuit.add_operation(cnot(0, 1));
+
+        circuit.add_operation(hadamard(0));
+
+
+        circuit.reduce_circuit_cancel_gates();
+        assert!(circuit.get_operations().len() == 0);
+    }
+    #[test]
+    fn test_gates_with_same_arity_and_target_mul_together(){
+        let mut circuit = QuantumCircuit::new();
+
+        //Will multiply together
+        circuit.add_operation(hadamard(0));
+        circuit.add_operation(not(0));
+
+        circuit.reduce_circuit_gates_with_same_targets();
+
+        assert!(circuit.get_operations().len() == 1);
+    }
+
+    #[test]
+    fn test_hadamard_twice_cancels() {
+        let mut circuit = QuantumCircuit::new();
+
+        //Will cancel
+        circuit.add_operation(hadamard(0));
+        circuit.add_operation(hadamard(0));
+
+        circuit.reduce_circuit_cancel_gates();
+
+        assert!(circuit.get_operations().len() == 0);
+    }
+    
+    #[test]
+    fn test_cnot_twice_cancels() {
+        let mut circuit = QuantumCircuit::new();
+
+        //Will cancel
+        circuit.add_operation(cnot(0, 1));
+        circuit.add_operation(cnot(0, 1));
+
+        circuit.reduce_circuit_cancel_gates();
+
+        assert!(circuit.get_operations().len() == 0);
     }
 }

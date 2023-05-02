@@ -291,7 +291,6 @@ impl Register {
 
     pub fn apply_circuit(&mut self, circuit: &mut QuantumCircuit) -> &mut Self {
         //Här kan man lätt optimera bort onödiga operationer
-        circuit.reduce_circuit_gates_with_same_targets();
         for op in circuit.get_operations() {
             println!("Apply");
             self.apply(&Operation::new(op.matrix(), op.targets()).expect("Could not create operation"));

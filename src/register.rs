@@ -1,7 +1,9 @@
 //! The `register` module provides quantum register functionality.
+use std::collections::{HashMap, HashSet};
+
 use crate::{
-    math::{self, c64},
-    operation::{Operation, QuantumOperation},
+    math::{self, c64, int_to_state},
+    operation::{Operation, QuantumOperation, QuantumCircuit},
 };
 use ndarray::{array, linalg, Array2};
 use rand::prelude::*;
@@ -284,6 +286,45 @@ impl Register {
         }
 
         Ok(res)
+    }
+
+    pub fn apply_circuit(&mut self, circuit: &QuantumCircuit) -> &mut Self {
+        let mut matrix = Array2::eye(1);
+        let mut targets = HashSet::new();
+        for op in circuit.get_operations() {
+            // matrix = linalg::kron(&matrix, &op.matrix());
+
+            if matrix.shape()[0] == op.matrix().shape()[0] {
+                matrix = matrix.dot(&op.matrix());
+            } else {
+                if matrix.shape()[0] < op.matrix().shape()[0] {
+                    //kollad vad shape[1/0] är...
+                    let diff = op.matrix().shape()[0] - matrix.shape()[0];
+                    let kroned = linalg::kron(&matrix, &int_to_state(0, 2));
+                    println!("kroned: {:}", kroned);
+                    println!("op: {:}", op.matrix());
+                    println!("matrix: {:}", matrix);
+                    matrix = op.matrix().dot(&kroned);
+                } else {
+                    let diff = matrix.shape()[0] - op.matrix().shape()[0];
+                    let kroned = linalg::kron(&op.matrix(), &int_to_state(0, 2_usize.pow(diff as u32)));
+                    println!("here");
+                    matrix = kroned.dot(&matrix);
+                }
+            }
+
+
+            // matrix = op.matrix().dot(&matrix);
+
+
+            targets.extend(op.targets());
+        }
+        let targets: Vec<usize> = targets.into_iter().collect();
+        println!("targets: {:?}", targets);
+        println!("matrix: {:}", matrix);
+        let circtuit_op = Operation::new(matrix, targets).expect("Could not create operation");
+        self.apply(&circtuit_op);
+        self
     }
 
     /// Prints the probability in percent of falling into different states

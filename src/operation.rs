@@ -69,6 +69,67 @@ impl Operation {
     }
 }
 
+/// A quantum measurement operation.
+pub struct Measurement {
+    targets: Vec<usize>,
+}
+impl QuantumOperation for Measurement {
+    fn matrix(&self) -> Array2<c64> {
+        identity(0).matrix()
+    }
+
+    fn targets(&self) -> Vec<usize> {
+        self.targets.to_vec()
+    }
+
+    fn arity(&self) -> usize {
+        self.targets().len()
+    }
+}
+
+/// A quantum circuit consisting of a sequence of operations.
+/// The circuit can be applied to a quantum register.
+pub struct QuantumCircuit {
+    operations: Vec<Box<dyn QuantumOperation>>,
+    has_measurement: bool,
+}
+
+impl QuantumCircuit {
+    /// Constructs a new quantum circuit.
+    pub fn new() -> QuantumCircuit {
+        QuantumCircuit {
+            operations: Vec::new(),
+            has_measurement: false,
+        }
+    }
+    pub fn get_operations(&self) -> &Vec<Box<dyn QuantumOperation>> {
+        &self.operations
+    }
+
+    
+
+    /// Adds an operation to the circuit.
+    pub fn add_operation(&mut self, operation: Box<dyn QuantumOperation>) {
+        if self.has_measurement {
+            panic!("Cannot add operation after measurement");
+        }
+        self.operations.push(operation);
+    }
+
+    /// Adds a measurement to the circuit.
+    pub fn add_measurement(&mut self, measurement: Box<dyn QuantumOperation>) {
+        if self.has_measurement {
+            panic!("Cannot add measurement after measurement");
+        }
+        self.has_measurement = true;
+        self.operations.push(measurement);
+    }
+
+
+
+}
+
+
 // TODO: Check if we can return references instead?
 impl QuantumOperation for Operation {
     fn matrix(&self) -> Array2<c64> {
@@ -282,6 +343,8 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
         targets,
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {

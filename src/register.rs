@@ -294,6 +294,8 @@ impl Register {
         for op in circuit.get_operations() {
             // matrix = linalg::kron(&matrix, &op.matrix());
 
+            //this is wrong, but i think i have an idea of how to remake it
+
             if matrix.shape()[0] == op.matrix().shape()[0] {
                 matrix = matrix.dot(&op.matrix());
             } else {

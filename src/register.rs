@@ -289,30 +289,16 @@ impl Register {
         Ok(res)
     }
 
-    pub fn apply_circuit(&mut self, circuit: &QuantumCircuit) -> &mut Self {
+    pub fn apply_circuit(&mut self, circuit: &mut QuantumCircuit) -> &mut Self {
         //Här kan man lätt optimera bort onödiga operationer
-        let mut i = 0;
-        while i < circuit.get_operations().len() {
-            let op = &circuit.get_operations()[i];
-            
-            let mut matrix = op.matrix();
-            let mut targets = op.targets().clone();
-            let mut j = i + 1;
-
-            while j < circuit.get_operations().len() && circuit.get_operations()[j].targets() == targets {
-                let next_op = &circuit.get_operations()[j];
-                matrix = next_op.matrix().dot(&matrix);
-                j+=1;
-            }
-            
+        circuit.reduce_circuit_gates_with_same_targets();
+        for op in circuit.get_operations() {
             println!("Apply");
-            self.apply(&Operation::new(matrix, targets).expect("Could not create operation"));
-            i = j;
-        }
+            self.apply(&Operation::new(op.matrix(), op.targets()).expect("Could not create operation"));
+        } 
 
         self
     }
-
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
         let n = self.size;

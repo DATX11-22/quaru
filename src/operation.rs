@@ -26,7 +26,7 @@
 //! let identity: Operation = identity(0);
 //! ```
 use crate::math::{c64, int_to_state, real_arr_to_complex};
-use ndarray::linalg;
+use ndarray::{linalg, Array};
 use ndarray::{array, Array2};
 use std::{f64::consts, vec};
 
@@ -45,7 +45,7 @@ pub trait QuantumOperation {
 /// # Note
 /// In order for an operation to be considered valid, the matrix shape must be square
 /// with length equal to the number of operands.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Operation {
     matrix: Array2<c64>,
     targets: Vec<usize>,
@@ -69,28 +69,10 @@ impl Operation {
     }
 }
 
-/// A quantum measurement operation.
-pub struct Measurement {
-    targets: Vec<usize>,
-}
-impl QuantumOperation for Measurement {
-    fn matrix(&self) -> Array2<c64> {
-        identity(0).matrix()
-    }
-
-    fn targets(&self) -> Vec<usize> {
-        self.targets.to_vec()
-    }
-
-    fn arity(&self) -> usize {
-        self.targets().len()
-    }
-}
-
 /// A quantum circuit consisting of a sequence of operations.
 /// The circuit can be applied to a quantum register.
 pub struct QuantumCircuit {
-    operations: Vec<Box<dyn QuantumOperation>>,
+    pub(crate) operations: Vec<Operation>,
     has_measurement: bool,
 }
 
@@ -102,14 +84,70 @@ impl QuantumCircuit {
             has_measurement: false,
         }
     }
-    pub fn get_operations(&self) -> &Vec<Box<dyn QuantumOperation>> {
+    pub fn get_operations(&self) -> &Vec<Operation> {
         &self.operations
     }
+    pub fn get_has_measurement(&mut self) -> bool {
+        self.has_measurement
+    }
 
-    
+    pub fn reduce_circuit_cancel_gates(&mut self) -> &mut Self {
+        //all real and symetric unitary gates cancel each other out
+        let mut i = 0;
+        let ops = &self.operations;
+        // let mut new_ops : Vec<Operation> = ops.clone();
+        let mut new_ops : Vec<Operation> = Vec::new();
+        while i < ops.len()-1{
+            let j = i + 1;
+            let op = &ops[i];
+            let next_op = &ops[j];
 
+            if op.matrix().iter().all(|x| x.im == 0.0) 
+            && *op == *next_op
+            {
+                i+=1;
+            } else {
+                new_ops.push(op.clone());
+            }
+            i+=1;
+        }
+        self.operations = new_ops;
+        self
+    }
+    pub fn reduce_circuit_gates_with_same_targets(&mut self) -> &mut Self {
+        let mut i= 0;
+        let ops = &self.operations;
+        let mut new_ops : Vec<Operation> = Vec::new();
+        let len = ops.len();
+        //self.clear_operations();
+        //inte alla likadana canclar varandra men här borde man kunna göra något smartare
+        //Om alla tal är reela så canclar dom varandra
+        while i < len {
+            let op = &ops[i];
+            
+            let mut matrix = op.matrix();
+            let mut targets = op.targets().clone();
+            let mut j = i + 1;
+
+            while j < self.get_operations().len() && self.get_operations()[j].targets() == targets {
+                let next_op = &self.get_operations()[j];
+                matrix = next_op.matrix().dot(&matrix);
+                j+=1;
+            }
+            new_ops.push(Operation::new(matrix, targets).expect("Could not create operation"));
+            i = j;
+        }
+        self.operations = new_ops;
+        self
+   }
+
+
+
+    pub fn clear_operations(&mut self) {
+        self.operations.clear();
+    }
     /// Adds an operation to the circuit.
-    pub fn add_operation(&mut self, operation: Box<dyn QuantumOperation>) {
+    pub fn add_operation(&mut self, operation: Operation) {
         if self.has_measurement {
             panic!("Cannot add operation after measurement");
         }
@@ -117,7 +155,7 @@ impl QuantumCircuit {
     }
 
     /// Adds a measurement to the circuit.
-    pub fn add_measurement(&mut self, measurement: Box<dyn QuantumOperation>) {
+    pub fn add_measurement(&mut self, measurement:Operation) {
         if self.has_measurement {
             panic!("Cannot add measurement after measurement");
         }

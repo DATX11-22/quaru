@@ -6,6 +6,7 @@ use crate::{
     operation::{Operation, QuantumOperation, QuantumCircuit},
 };
 use ndarray::{array, linalg, Array2};
+use num::PrimInt;
 use rand::prelude::*;
 
 /// Errors which can occur when an operation is applied on the register.
@@ -289,43 +290,26 @@ impl Register {
     }
 
     pub fn apply_circuit(&mut self, circuit: &QuantumCircuit) -> &mut Self {
-        let mut matrix = Array2::eye(1);
-        let mut targets = HashSet::new();
-        for op in circuit.get_operations() {
-            // matrix = linalg::kron(&matrix, &op.matrix());
+        //Här kan man lätt optimera bort onödiga operationer
+        let mut i = 0;
+        while i < circuit.get_operations().len() {
+            let op = &circuit.get_operations()[i];
+            
+            let mut matrix = op.matrix();
+            let mut targets = op.targets().clone();
+            let mut j = i + 1;
 
-            //this is wrong, but i think i have an idea of how to remake it
-
-            if matrix.shape()[0] == op.matrix().shape()[0] {
-                matrix = matrix.dot(&op.matrix());
-            } else {
-                if matrix.shape()[0] < op.matrix().shape()[0] {
-                    //kollad vad shape[1/0] är...
-                    let diff = op.matrix().shape()[0] - matrix.shape()[0];
-                    let kroned = linalg::kron(&matrix, &int_to_state(0, 2));
-                    println!("kroned: {:}", kroned);
-                    println!("op: {:}", op.matrix());
-                    println!("matrix: {:}", matrix);
-                    matrix = op.matrix().dot(&kroned);
-                } else {
-                    let diff = matrix.shape()[0] - op.matrix().shape()[0];
-                    let kroned = linalg::kron(&op.matrix(), &int_to_state(0, 2_usize.pow(diff as u32)));
-                    println!("here");
-                    matrix = kroned.dot(&matrix);
-                }
+            while j < circuit.get_operations().len() && circuit.get_operations()[j].targets() == targets {
+                let next_op = &circuit.get_operations()[j];
+                matrix = next_op.matrix().dot(&matrix);
+                j+=1;
             }
-
-
-            // matrix = op.matrix().dot(&matrix);
-
-
-            targets.extend(op.targets());
+            
+            println!("Apply");
+            self.apply(&Operation::new(matrix, targets).expect("Could not create operation"));
+            i = j;
         }
-        let targets: Vec<usize> = targets.into_iter().collect();
-        println!("targets: {:?}", targets);
-        println!("matrix: {:}", matrix);
-        let circtuit_op = Operation::new(matrix, targets).expect("Could not create operation");
-        self.apply(&circtuit_op);
+
         self
     }
 

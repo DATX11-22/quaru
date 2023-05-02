@@ -7,8 +7,11 @@ fn main() {
     let mut circuit = QuantumCircuit::new();
 
     circuit.add_operation(Box::new(hadamard(0)));
+    circuit.add_operation(Box::new(hadamard(0)));
 
     circuit.add_operation(Box::new(cnot(0, 1)));
+    circuit.add_operation(Box::new(cnot(0, 1)));
+
 
     reg.apply_circuit(&circuit);
 

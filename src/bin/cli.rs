@@ -1,16 +1,16 @@
 use clap::Parser;
 use inquire::{error::InquireError, validator::Validation, Select, Text};
-use std::{collections::HashMap, fmt::Display, path::Path, vec};
+use std::{collections::HashMap, fmt::Display, path::Path, vec}; 
 
 use quaru::{
     openqasm,
-    operation::{self, Operation},
     register::Register,
 };
 
 /// Initial choices
 enum Choice {
     Show,
+    Circuit,
     Apply,
     Measure,
     Create,
@@ -27,7 +27,7 @@ impl Choice {
             choices.append(&mut vec![Choice::Show]);
         }
         if !state.q_regs.is_empty() {
-            choices.append(&mut vec![Choice::Apply, Choice::Measure]);
+            choices.append(&mut vec![Choice::Apply, Choice::Measure, Choice::Circuit]);
         }
 
         choices.append(&mut vec![Choice::Create, Choice::OpenQASM, Choice::Exit]);
@@ -42,6 +42,7 @@ impl Display for Choice {
             Choice::Apply => write!(f, "Apply"),
             Choice::Measure => write!(f, "Measure"),
             Choice::Show => write!(f, "Show"),
+            Choice::Circuit => write!(f, "Show Circuit"),
             Choice::Create => write!(f, "Create register"),
             Choice::OpenQASM => write!(f, "Run OpenQASM program"),
             Choice::Exit => write!(f, "Exit"),
@@ -219,11 +220,11 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
 fn indicies_prompt<const N: usize>(
     target_names: [&str; N],
     size: usize,
-) -> Result<Vec<usize>, InquireError> {
+    ) -> Result<Vec<usize>, InquireError> {
     assert!(
         N <= size,
         "Cannot call operation on more qubits than register size! ({N} > {size}"
-    );
+        );
 
     let options: Vec<usize> = (0..size).collect();
     let mut targets: Vec<usize> = Vec::new();
@@ -233,12 +234,12 @@ fn indicies_prompt<const N: usize>(
         let target = Select::new(
             format!("Select a {name} index: ").as_str(),
             options
-                .clone()
-                .into_iter()
-                .filter(|o| !targets.contains(o))
-                .collect(),
-        )
-        .prompt()?;
+            .clone()
+            .into_iter()
+            .filter(|o| !targets.contains(o))
+            .collect(),
+            )
+            .prompt()?;
 
         // removes the selected target to avoid duplicate targets
         targets.push(target);
@@ -264,8 +265,8 @@ fn register_type_prompt() -> Result<RegisterType, InquireError> {
     Select::new(
         "Select the register type",
         vec![RegisterType::Quantum, RegisterType::Classical],
-    )
-    .prompt()
+        )
+        .prompt()
 }
 
 /// Prompts the user for a register name. The name cannot be empty and must
@@ -310,7 +311,7 @@ fn reg_prompt<T>(
     message: String,
     registers: &mut RegCollection<T>,
     autoselect: bool,
-) -> Result<&mut T, InquireError> {
+    ) -> Result<&mut T, InquireError> {
     let options: Vec<String> = registers.keys().cloned().collect();
 
     // Prompt for the quantum register. If there is only one then we don't need to
@@ -324,28 +325,28 @@ fn reg_prompt<T>(
     registers
         .get_mut(&choice)
         .ok_or(InquireError::InvalidConfiguration(
-            "Invalid quantum register".to_string(),
-        ))
+                "Invalid quantum register".to_string(),
+                ))
 }
 
 /// Prompts the user for a quantum register in the specified register collection
 fn qreg_prompt(
     registers: &mut QRegCollection,
     autoselect: bool,
-) -> Result<&mut Register, InquireError> {
+    ) -> Result<&mut HistoryQRegister, InquireError> {
     reg_prompt("Select quantum register".to_string(), registers, autoselect)
 }
 
-/// Prompts the user for a quantum register in the specified register collection
+/// Prompts the user for a classical register in the specified register collection
 fn creg_prompt(
     registers: &mut CRegCollection,
     autoselect: bool,
-) -> Result<&mut Vec<bool>, InquireError> {
+    ) -> Result<&mut Vec<bool>, InquireError> {
     reg_prompt(
         "Select classical register".to_string(),
         registers,
         autoselect,
-    )
+        )
 }
 
 /// Like `creg_prompt` but with a custom message
@@ -353,7 +354,7 @@ fn creg_prompt_message(
     message: String,
     registers: &mut CRegCollection,
     autoselect: bool,
-) -> Result<&mut Vec<bool>, InquireError> {
+    ) -> Result<&mut Vec<bool>, InquireError> {
     reg_prompt(message, registers, autoselect)
 }
 
@@ -363,17 +364,17 @@ fn creg_prompt_message(
 /// # Panics
 ///
 /// Panics if `size` == 0.
-fn get_unary(size: usize) -> Result<Operation, InquireError> {
+fn get_unary(size: usize) -> Result<IdentfiableOperation, InquireError> {
     let unary_op = unary_prompt()?;
     let target = indicies_prompt(unary_operation_target_name(&unary_op), size)?[0];
 
     let op = match unary_op {
-        UnaryOperation::Identity => operation::identity(target),
-        UnaryOperation::Hadamard => operation::hadamard(target),
-        UnaryOperation::Phase => operation::phase(target),
-        UnaryOperation::Not => operation::not(target),
-        UnaryOperation::PauliY => operation::pauli_y(target),
-        UnaryOperation::PauliZ => operation::pauli_z(target),
+        UnaryOperation::Identity => IdentfiableOperation::identity(target),
+        UnaryOperation::Hadamard => IdentfiableOperation::hadamard(target),
+        UnaryOperation::Phase => IdentfiableOperation::phase(target),
+        UnaryOperation::Not => IdentfiableOperation::not(target),
+        UnaryOperation::PauliY => IdentfiableOperation::pauli_y(target),
+        UnaryOperation::PauliZ => IdentfiableOperation::pauli_z(target),
     };
 
     Ok(op)
@@ -385,7 +386,7 @@ fn get_unary(size: usize) -> Result<Operation, InquireError> {
 /// # Panics
 ///
 /// Panics if `size` < 2.
-fn get_binary(size: usize) -> Result<Operation, InquireError> {
+fn get_binary(size: usize) -> Result<IdentfiableOperation, InquireError> {
     let binary_op = binary_prompt()?;
     let targets = indicies_prompt(binary_operation_target_names(&binary_op), size)?;
 
@@ -393,8 +394,8 @@ fn get_binary(size: usize) -> Result<Operation, InquireError> {
     let b = targets[1];
 
     let op = match binary_op {
-        BinaryOperation::CNot => operation::cnot(a, b),
-        BinaryOperation::Swap => operation::swap(a, b),
+        BinaryOperation::CNot => IdentfiableOperation::cnot(a, b),
+        BinaryOperation::Swap => IdentfiableOperation::swap(a, b),
     };
 
     Ok(op)
@@ -482,6 +483,13 @@ fn handle_show(state: &mut State) -> Result<(), InquireError> {
     Ok(())
 }
 
+fn handle_circuit(state: &mut State) -> Result<(), InquireError> {
+    let register = qreg_prompt(&mut state.q_regs, true)?;
+    display_circuit(register.history(), register.size());
+
+    Ok(())
+}
+
 /// Given a simulator state `state`, prompts the user to create a quantum or classical
 fn handle_create(state: &mut State) -> Result<(), InquireError> {
     // Promt for register type
@@ -500,7 +508,7 @@ fn handle_create(state: &mut State) -> Result<(), InquireError> {
             state.c_regs.insert(reg_name, reg_state.clone());
         }
         RegisterType::Quantum => {
-            let reg = Register::new(reg_state.as_slice());
+            let reg = HistoryQRegister::new(reg_state.as_slice());
             state.q_regs.insert(reg_name, reg);
         }
     };
@@ -545,8 +553,11 @@ fn handle_openqasm(state: &mut State) -> Result<(), InquireError> {
     let res = openqasm::run_openqasm(Path::new(&filepath))
         .expect("Problem encountered when running OpenQASM program");
 
+    // Convert quantum registers to historical registers
+    let qregs: HashMap<String, HistoryQRegister> = res.qregs.into_iter().map(|(k,v)| (k, HistoryQRegister::from_register(v))).collect();
+
     // Add the result from the openqasm file to the state of the simulation
-    state.q_regs.extend(res.qregs);
+    state.q_regs.extend(qregs);
     state.c_regs.extend(res.cregs);
 
     Ok(())
@@ -561,8 +572,10 @@ struct Args {
     size: Option<usize>,
 }
 
+use quaru::display::{display_circuit, IdentfiableOperation};
+
 type RegCollection<T> = HashMap<String, T>;
-type QRegCollection = RegCollection<Register>;
+type QRegCollection = RegCollection<HistoryQRegister>;
 type CRegCollection = RegCollection<Vec<bool>>;
 
 /// The state of the simulator
@@ -570,6 +583,47 @@ struct State {
     q_regs: QRegCollection,
     c_regs: CRegCollection,
 }
+
+struct HistoryQRegister {
+    register: Register,
+    history: Vec<IdentfiableOperation>,
+}
+
+impl HistoryQRegister  {
+    fn new(input_bits: &[bool]) -> HistoryQRegister {
+        let register = Register::new(input_bits);
+        let history: Vec<IdentfiableOperation> = Vec::new();
+
+        HistoryQRegister { register, history }
+    }
+
+    fn size(&self) -> usize {
+        self.register.size()
+    }
+
+    fn history(&self) -> Vec<IdentfiableOperation> {
+        self.history.clone()
+    }
+
+    fn print_state(&self) {
+        self.register.print_state()
+    }
+
+    fn apply(&mut self, op: &IdentfiableOperation) {
+        self.history.push(op.clone());
+        self.register.apply(&op.operation());
+    }
+
+    fn from_register(register: Register) -> HistoryQRegister {
+        HistoryQRegister { register, history: Vec::new() }
+    }
+
+    fn measure(&mut self, index: usize) -> bool {
+        self.register.measure(index)
+    }
+}
+
+
 
 /// Runs the Quaru shell.
 fn main() {
@@ -587,7 +641,7 @@ fn main() {
     if let Some(n) = args.size {
         // Create initial register
         let init_state = &[false].repeat(n);
-        let reg = Register::new(init_state.as_slice());
+        let reg = HistoryQRegister::new(init_state.as_slice());
         state.q_regs.insert("qreg0".to_string(), reg);
     }
 
@@ -605,6 +659,7 @@ fn main() {
 
         let res = match init {
             Choice::Show => handle_show(&mut state),
+            Choice::Circuit => handle_circuit(&mut state),
             Choice::Apply => handle_apply(&mut state),
             Choice::Measure => handle_measure(&mut state),
             Choice::Create => handle_create(&mut state),

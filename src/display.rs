@@ -4,12 +4,12 @@ use crate::operation::{self, Operation, QuantumOperation};
 /// Each horizontal line represents a qubit
 /// Each vertical line represents an operation
 /// Takes a list of operations and the number of qubits in the circuit
-pub fn display_circuit(operations: Vec<IdentfiableOperation>, qubits: usize) {
+pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
     let mut circuit: Vec<String> = Vec::new();
 
     // Push strings to circuit and initialize them with qubit numbers
     // Intersperse each line with an empty line
-    for _ in 0..qubits + (qubits - 1) {
+    for _ in 0..size + (size - 1) {
         circuit.push(String::new());
     }
     for i in 0..circuit.len() {
@@ -103,6 +103,7 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, qubits: usize) {
 }
 
 /// An operation with an identifier.
+#[derive(Clone)]
 pub struct IdentfiableOperation {
     identifier: OperationIdentifier,
     operation: Operation,
@@ -157,9 +158,15 @@ impl IdentfiableOperation {
             operation::swap(target_1, target_2),
         )
     }
+
+    /// Returns the operation.
+    pub fn operation(&self) -> Operation {
+        self.operation.clone()
+    }
 }
 
 /// Identifier for available operations in the CLI.
+#[derive(Clone)]
 pub enum OperationIdentifier {
     /// The Identity identifier.
     Identity,

@@ -136,17 +136,19 @@ impl Register {
         self.try_apply(op).expect("Coult not apply operation")
     }
 
+    /// Note: transposes the array
     fn ndarray_to_arrayfire(input: &Array2<c64>) -> af::Array<c64> {
         let data_vec: Vec<c64> = input.iter().cloned().collect();
 
-        let af_array = af::Array::new(&data_vec, af::Dim4::new(&[input.shape()[0] as u64, input.shape()[1] as u64, 1, 1]));
+        let af_array = af::Array::new(&data_vec, af::Dim4::new(&[input.shape()[1] as u64, input.shape()[0] as u64, 1, 1]));
 
         af_array
     }
 
+    /// Note: transposes the array
     fn arrayfire_to_ndarray(af_array: &af::Array<c64>) -> Array2<c64> {
         let af_dims = af_array.dims();
-        let shape = (af_dims[0] as usize, af_dims[1] as usize);
+        let shape = (af_dims[1] as usize, af_dims[0] as usize);
 
         let mut data: Vec<c64> = vec![c64::default(); af_dims.elements() as usize];
         af_array.host(&mut data);
@@ -206,7 +208,8 @@ impl Register {
         // Calculate new state with GPU
         let af_permuted_state = Self::ndarray_to_arrayfire(&permuted_state);
         let af_matrix = Self::ndarray_to_arrayfire(&matrix);
-        let af_new_permuted_state = af::matmul(&af_matrix, &af_permuted_state, af::MatProp::NONE, af::MatProp::NONE);
+        // A * B = (B^T * A^T)^T
+        let af_new_permuted_state = af::matmul(&af_permuted_state, &af_matrix, af::MatProp::NONE, af::MatProp::NONE);
         permuted_state = Self::arrayfire_to_ndarray(&af_new_permuted_state);
 
         // Permute back, similar to above but backwards (perm[k] -> k instead of the other way around)

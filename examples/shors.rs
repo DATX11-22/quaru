@@ -4,7 +4,7 @@ use log::debug;
 use ndarray::Array2;
 use num::traits::Pow;
 use quaru::math::{c64, limit_denominator, modpow, ComplexFloat};
-use quaru::operation::Operation;
+use quaru::operation::{Operation, QuantumCircuit};
 use quaru::{operation, register::Register};
 use rand::Rng;
 use std::f64::consts;
@@ -20,6 +20,9 @@ struct Args {
     /// Number of times to run the algorithm
     #[arg(long, default_value_t = 1)]
     n_times: u32,
+
+    #[arg(long, default_value_t = false)]
+    use_circuit: bool,
 }
 
 fn main() {
@@ -28,6 +31,7 @@ fn main() {
     let args = Args::parse();
     let number = args.number;
     let n_times = args.n_times;
+    let use_circuit = args.use_circuit;
 
     let mut runtimes = Vec::<i64>::new();
     for _ in 0..n_times {
@@ -35,7 +39,7 @@ fn main() {
         println!("Running for N = {}", number);
 
         // Find a factor with shor's algorithm
-        let d1 = shors(number);
+        let d1 = shors(number, use_circuit);
         let d2 = number / d1;
         println!(
             "The factors of {} are {} and {}",
@@ -78,7 +82,7 @@ fn u_gate(targets: Vec<usize>, modulus: u32, a: u32, i: usize) -> operation::Ope
 
 /// Shor's algorithm
 /// This algorithm finds a factor of the number N.
-fn shors(number: u32) -> u32 {
+fn shors(number: u32, use_circuit : bool) -> u32 {
     // Shor's algorithm doesn't work for even numbers
     if number % 2 == 0 {
         return 2;
@@ -115,7 +119,11 @@ fn shors(number: u32) -> u32 {
         }
 
         // Quantum part
-        let r = find_period(number, a);
+        let r = if use_circuit {
+            find_period_circuit(number, a)
+        } else {
+             find_period(number, a)
+        };
 
         // We need an even r. If r is odd, try again.
         if r % 2 == 0 {
@@ -203,6 +211,61 @@ fn find_period(number: u32, a: u32) -> u32 {
     r
 }
 
+fn find_period_circuit(number: u32, a: u32) -> u32 {
+    // We need n qubits to represent N
+    let n = ((number + 1) as f64).log2().ceil() as usize;
+
+    let mut circ = QuantumCircuit::new();
+    circ.add_operation(operation::hadamard_transform((0..2 * n).collect()));
+
+    circ.add_operation(operation::not(2 * n));
+
+    // The U-gates are applied to the last n qubits
+    let targets: Vec<usize> = (2 * n..3 * n).collect();
+    for i in 0..2 * n {
+        let u_gate = u_gate(targets.clone(), number, a, i);
+        // There are 2n U gates, each controlled by one of the first 2n qubits
+        let c_u_gate = operation::to_controlled(u_gate, i);
+
+        circ.add_operation(c_u_gate);
+    }
+    // Apply the qft (Quantum Fourier Transform) to the first 2n qubits
+    let qft = qft(2 * n);
+    circ.add_operation(qft.expect("Creation of qft failed"));
+
+    let mut res = 0;
+    for i in 0..2 * n {
+        circ.add_measurement(i);
+        // let m = if reg.measure(i) { 1 } else { 0 };
+        // res |= m << i;
+    }
+
+    let mut reg = Register::new(&vec![false; 3 * n]);
+
+
+    println!("REDUCE CIRCUIT");
+    circ.reduce_circuit_cancel_gates();
+    circ.reduce_circuit_gates_with_same_targets();
+    // circ.reduce_gates_until_too_big(3*n as u32);
+    println!("APPLY CIRCUIT");
+    let measures = reg.apply_circuit(&mut circ);
+    for (i, m) in measures.iter(){
+        let v = if *m { 1 } else { 0 };
+        res |= v << i;
+    }
+
+
+
+    let theta = res as f64 / 2_f64.pow((2 * n) as f64);
+    debug!("theta = {}", theta);
+    // At this point, theta ≃ s/r, where s is a random number between 0 and r-1,
+    // and r is the period of a^x (mod N).
+
+    // Find the fraction s/r closest to theta with r < N (we know the period is less than N).
+    let r = limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1;
+
+    r
+}
 /// Returns the Quantum Fourier Transformation gate for the first n qubits in the register
 pub fn qft(n: usize) -> Option<Operation> {
     let m = 1 << n;
@@ -266,7 +329,7 @@ mod tests {
         // Test all composite numbers up to 15.
         // Only 15 is not caught by classical tests.
         for n in [4, 6, 8, 9, 10, 12, 14, 15] {
-            let r = super::shors(n);
+            let r = super::shors(n, false);
             assert!(n % r == 0 && 1 < r && r < n);
         }
     }

@@ -28,6 +28,7 @@
 use crate::math::{c64, int_to_state, real_arr_to_complex};
 use ndarray::{linalg, Array};
 use ndarray::{array, Array2};
+use std::collections::HashSet;
 use std::{f64::consts, vec};
 
 // Naming?
@@ -160,7 +161,68 @@ impl QuantumCircuit {
         self
    }
 
+   pub fn reduce_gates_until_too_big(&mut self, reg_size : u32) -> &mut Self {
+    self.reduce_circuit_cancel_gates();
+    self.reduce_circuit_gates_with_same_targets();
+    //it is worth doing the combining as long as the gates are half the size of the register
+    let mut i = 0;
+    let ops = &self.operations;
+    let mut new_ops : Vec<Operation> = Vec::new();
+    let len = ops.len();
+    //This only looks at three gates at a time, it is possible to miss better overlaps 
+    // or even leave some gates uncombined
+    // It will also not combine tha last gate
+    while i < len - 2 {
+        let op = &ops[i];
 
+        if op.targets().len() > reg_size as usize / 2 {
+            new_ops.push(op.clone());
+            i+=1;
+            continue;
+        }
+
+        let next_op = &ops[i+1];
+        let next_next_op = &ops[i+2];
+
+        let op_targets = op.targets();
+        let next_op_targets = next_op.targets();
+        let next_next_op_targets = next_next_op.targets();
+
+        let op_set = op_targets.iter().collect::<HashSet<_>>();
+        let next_op_set = next_op_targets.iter().collect::<HashSet<_>>();
+        let next_next_op_set = next_next_op_targets.iter().collect::<HashSet<_>>();
+
+        let fst_target_overlap = op_set.intersection(&next_op_set).collect::<HashSet<_>>();
+        let snd_target_overlap = next_op_set.intersection(&next_next_op_set).collect::<HashSet<_>>();
+
+        if fst_target_overlap.len() > snd_target_overlap.len() {
+            let mut matrix = op.matrix().dot(&next_op.matrix());
+            let new_targets = op_set.union(&next_op_set).cloned().collect::<Vec<_>>()
+            .iter().map(|x| **x).collect::<Vec<_>>();
+            let new_op = Operation::new(matrix, new_targets).expect("Could not create operation");
+            new_ops.push(new_op);
+            i+=2;
+        } else {
+            new_ops.push(op.clone());
+            i+=1;
+        }
+
+    }
+
+
+
+    self
+   }
+   fn extend_matricies_and_combine(&mut self, op1 : &Operation, op2 : &Operation) -> Operation {
+        let diff = op1.targets().len() - op2.targets().len();
+        if diff == 0 {
+            //This is hard, what if they have the same size but different targets?
+
+        }
+
+        
+        Operation::new(op1.matrix().dot(&op2.matrix()), op1.targets().clone()).expect("Could not create operation")
+   }
 
     pub fn clear_operations(&mut self) {
         self.operations.clear();
@@ -205,7 +267,7 @@ impl QuantumOperation for Operation {
     }
 
     fn targets(&self) -> Vec<usize> {
-        self.targets.to_vec()
+        self.targets.clone()
     }
 
     fn arity(&self) -> usize {

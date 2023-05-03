@@ -289,8 +289,8 @@ impl Register {
         Ok(res)
     }
 
-    pub fn apply_circuit(&mut self, circuit: &mut QuantumCircuit) -> &mut Self {
-        //Här kan man lätt optimera bort onödiga operationer
+    //applies a circuit and returns the results of the measurements
+    pub fn apply_circuit(&mut self, circuit: &mut QuantumCircuit) -> Vec<(usize, bool)> {
         for op in circuit.get_operations() {
             self.apply(
                 &Operation::new(op.matrix(), op.targets()).expect("Could not create operation"),
@@ -313,8 +313,9 @@ impl Register {
                 );
             }
         }
+        
+        measures
 
-        self
     }
     pub fn measure_circuit(&mut self, circuit: &mut QuantumCircuit) -> Vec<(usize, bool)> {
         let mut res = Vec::new();

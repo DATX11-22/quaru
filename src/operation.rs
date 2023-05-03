@@ -73,7 +73,8 @@ impl Operation {
 /// The circuit can be applied to a quantum register.
 pub struct QuantumCircuit {
     pub(crate) operations: Vec<Operation>,
-    has_measurement: bool,
+    measurement_targets: Vec<usize>,
+    conditional_operations: Vec<(Operation, Vec<(usize, bool)>)>,
 }
 
 impl QuantumCircuit {
@@ -81,14 +82,23 @@ impl QuantumCircuit {
     pub fn new() -> QuantumCircuit {
         QuantumCircuit {
             operations: Vec::new(),
-            has_measurement: false,
+            measurement_targets: Vec::new(),
+            conditional_operations: Vec::new(),
         }
+    }
+    pub fn reset_register(&mut self) -> &mut Self {
+        self.operations.clear();
+        self.measurement_targets.clear();
+        self
     }
     pub fn get_operations(&self) -> &Vec<Operation> {
         &self.operations
     }
-    pub fn get_has_measurement(&mut self) -> bool {
-        self.has_measurement
+    pub fn get_measurement_targets(&mut self) -> &Vec<usize> {
+        &self.measurement_targets
+    }
+    pub fn get_conditional_operations(&mut self) -> &Vec<(Operation, Vec<(usize, bool)>)> {
+        &self.conditional_operations
     }
 
     pub fn reduce_circuit_cancel_gates(&mut self) -> &mut Self {
@@ -157,21 +167,32 @@ impl QuantumCircuit {
     }
     /// Adds an operation to the circuit.
     pub fn add_operation(&mut self, operation: Operation) {
-        if self.has_measurement {
+        if operation.targets().iter().any(|x| self.measurement_targets.contains(x)) {
             panic!("Cannot add operation after measurement");
+        }
+        if self.conditional_operations.len() > 0 {
+            panic!("Cannot add operation after conditional operation (yet...)");
         }
         self.operations.push(operation);
     }
 
     /// Adds a measurement to the circuit.
-    pub fn add_measurement(&mut self, measurement:Operation) {
-        if self.has_measurement {
+    pub fn add_measurement(&mut self, target: usize) {
+        if self.measurement_targets.contains(&target) {
             panic!("Cannot add measurement after measurement");
         }
-        self.has_measurement = true;
-        self.operations.push(measurement);
+        self.measurement_targets.push(target);
     }
 
+    pub fn add_conditional_operation(&mut self, operation: Operation, condition: Vec<(usize, bool)>) {
+        if operation.targets().iter().any(|x| self.measurement_targets.contains(x)) {
+            panic!("Cannot add operation after measurement");
+        }
+        if !condition.iter().all(|x : &(usize, bool) | self.measurement_targets.contains(&x.0)) {
+            panic!("Condition must be a measurement");
+        }
+        self.conditional_operations.push((operation, condition));
+    }
 
 
 }

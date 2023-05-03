@@ -1,150 +1,11 @@
 use clap::Parser;
 use inquire::{error::InquireError, validator::Validation, Select, Text};
-use std::{collections::HashMap, fmt::Display, path::Path, vec}; 
+use std::{collections::HashMap, path::Path, vec}; 
 
 use quaru::{
     openqasm,
-    register::Register,
+    cli_utils::types::{BinaryOperation, Choice, OperationType, RegisterType, State, UnaryOperation, RegCollection, QRegCollection, HistoryQRegister, CRegCollection },
 };
-
-/// Initial choices
-enum Choice {
-    Show,
-    Circuit,
-    Apply,
-    Measure,
-    Create,
-    OpenQASM,
-    Exit,
-}
-
-impl Choice {
-    /// The possible actions the user can take. Which actions are available depend on the state
-    /// of the simulation.
-    fn choices(state: &State) -> Vec<Choice> {
-        let mut choices = Vec::new();
-        if !state.q_regs.is_empty() || !state.c_regs.is_empty() {
-            choices.append(&mut vec![Choice::Show]);
-        }
-        if !state.q_regs.is_empty() {
-            choices.append(&mut vec![Choice::Apply, Choice::Measure, Choice::Circuit]);
-        }
-
-        choices.append(&mut vec![Choice::Create, Choice::OpenQASM, Choice::Exit]);
-
-        choices
-    }
-}
-
-impl Display for Choice {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Choice::Apply => write!(f, "Apply"),
-            Choice::Measure => write!(f, "Measure"),
-            Choice::Show => write!(f, "Show"),
-            Choice::Circuit => write!(f, "Show Circuit"),
-            Choice::Create => write!(f, "Create register"),
-            Choice::OpenQASM => write!(f, "Run OpenQASM program"),
-            Choice::Exit => write!(f, "Exit"),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum OperationType {
-    Unary,
-    Binary,
-}
-
-impl OperationType {
-    fn types() -> Vec<OperationType> {
-        vec![OperationType::Unary, OperationType::Binary]
-    }
-
-    fn size(&self) -> usize {
-        match self {
-            OperationType::Unary => 1,
-            OperationType::Binary => 2,
-        }
-    }
-}
-
-impl Display for OperationType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            OperationType::Unary => write!(f, "Unary"),
-            OperationType::Binary => write!(f, "Binary"),
-        }
-    }
-}
-
-enum UnaryOperation {
-    Identity,
-    Hadamard,
-    Phase,
-    Not,
-    PauliY,
-    PauliZ,
-}
-
-impl UnaryOperation {
-    /// Returns a vector of every possible unary operation.
-    fn operations() -> Vec<UnaryOperation> {
-        vec![
-            UnaryOperation::Identity,
-            UnaryOperation::Hadamard,
-            UnaryOperation::Phase,
-            UnaryOperation::Not,
-            UnaryOperation::PauliY,
-            UnaryOperation::PauliZ,
-        ]
-    }
-}
-
-impl Display for UnaryOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnaryOperation::Identity => write!(f, "Identity"),
-            UnaryOperation::Hadamard => write!(f, "Hadamard"),
-            UnaryOperation::Phase => write!(f, "Phase"),
-            UnaryOperation::Not => write!(f, "NOT"),
-            UnaryOperation::PauliY => write!(f, "Pauli Y"),
-            UnaryOperation::PauliZ => write!(f, "Pauli Z"),
-        }
-    }
-}
-
-fn unary_operation_target_name(_: &UnaryOperation) -> [&str; 1] {
-    ["target"]
-}
-
-enum BinaryOperation {
-    CNot,
-    Swap,
-}
-
-impl BinaryOperation {
-    /// Returns a vector of every possible binary operation.
-    fn operations() -> Vec<BinaryOperation> {
-        vec![BinaryOperation::CNot, BinaryOperation::Swap]
-    }
-}
-
-impl Display for BinaryOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BinaryOperation::CNot => write!(f, "CNOT"),
-            BinaryOperation::Swap => write!(f, "Swap"),
-        }
-    }
-}
-
-fn binary_operation_target_names(op: &BinaryOperation) -> [&str; 2] {
-    match *op {
-        BinaryOperation::CNot => ["control", "target"],
-        _ => ["target"; 2],
-    }
-}
 
 
 /// Given a usize `max` prompts the user for a register size and returns a result containing a size.
@@ -248,18 +109,6 @@ fn indicies_prompt<const N: usize>(
     Ok(targets)
 }
 
-#[derive(Debug)]
-enum RegisterType {
-    Classical,
-    Quantum,
-}
-
-impl Display for RegisterType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
-    }
-}
-
 /// Prompts the user for a type of register. Either `Quantum` or `Classical`
 fn register_type_prompt() -> Result<RegisterType, InquireError> {
     Select::new(
@@ -283,8 +132,8 @@ fn register_name_prompt(state: &State) -> Result<String, InquireError> {
 
     // Validator that makes sure that the supplied register name is not already
     // used by another register
-    let qreg_names: Vec<String> = state.q_regs.keys().cloned().collect();
-    let creg_names: Vec<String> = state.q_regs.keys().cloned().collect();
+    let qreg_names: Vec<String> = state.q_regs().keys().cloned().collect();
+    let creg_names: Vec<String> = state.q_regs().keys().cloned().collect();
     let no_duplicate_validator = move |s: &str| {
         let s = &s.to_string();
         if qreg_names.contains(s) || creg_names.contains(s) {
@@ -366,7 +215,7 @@ fn creg_prompt_message(
 /// Panics if `size` == 0.
 fn get_unary(size: usize) -> Result<IdentfiableOperation, InquireError> {
     let unary_op = unary_prompt()?;
-    let target = indicies_prompt(unary_operation_target_name(&unary_op), size)?[0];
+    let target = indicies_prompt(UnaryOperation::target_name(&unary_op), size)?[0];
 
     let op = match unary_op {
         UnaryOperation::Identity => IdentfiableOperation::identity(target),
@@ -388,7 +237,7 @@ fn get_unary(size: usize) -> Result<IdentfiableOperation, InquireError> {
 /// Panics if `size` < 2.
 fn get_binary(size: usize) -> Result<IdentfiableOperation, InquireError> {
     let binary_op = binary_prompt()?;
-    let targets = indicies_prompt(binary_operation_target_names(&binary_op), size)?;
+    let targets = indicies_prompt(BinaryOperation::target_names(&binary_op), size)?;
 
     let a = targets[0];
     let b = targets[1];
@@ -408,7 +257,7 @@ fn get_binary(size: usize) -> Result<IdentfiableOperation, InquireError> {
 ///
 /// Panics if there are no quantum registers in `state`
 fn handle_apply(state: &mut State) -> Result<(), InquireError> {
-    let reg = qreg_prompt(&mut state.q_regs, true)?;
+    let reg = qreg_prompt(state.q_regs_as_mut(), true)?;
     let op_type = operation_prompt(reg.size())?;
 
     let op = match op_type {
@@ -427,7 +276,7 @@ fn handle_apply(state: &mut State) -> Result<(), InquireError> {
 ///
 /// Panics if there are no quantum registers in `state`
 fn handle_measure(state: &mut State) -> Result<(), InquireError> {
-    let q_reg = qreg_prompt(&mut state.q_regs, true)?;
+    let q_reg = qreg_prompt(state.q_regs_as_mut(), true)?;
     let q_index = indicies_prompt(["qubit"], q_reg.size())?[0];
 
     let result = q_reg.measure(q_index);
@@ -436,7 +285,7 @@ fn handle_measure(state: &mut State) -> Result<(), InquireError> {
     // user might not always want to measure into a classical register
     if let Ok(c_reg) = creg_prompt_message(
         "Select classical register (Esc to skip)".to_string(),
-        &mut state.c_regs,
+        &mut state.c_regs(),
         false,
     ) {
         if let Ok(c_index) = indicies_prompt(["bit"], c_reg.len()) {
@@ -456,9 +305,9 @@ fn handle_measure(state: &mut State) -> Result<(), InquireError> {
 /// Panics if there are no registers in `state`
 fn handle_show(state: &mut State) -> Result<(), InquireError> {
     // Prompt for the type of register to show, or default to one if the other is empty
-    let reg_type = if state.q_regs.is_empty() {
+    let reg_type = if state.q_regs().is_empty() {
         RegisterType::Classical
-    } else if state.c_regs.is_empty() {
+    } else if state.c_regs().is_empty() {
         RegisterType::Quantum
     } else {
         register_type_prompt()?
@@ -467,13 +316,13 @@ fn handle_show(state: &mut State) -> Result<(), InquireError> {
     // Print the registers state
     match reg_type {
         RegisterType::Classical => {
-            let reg = creg_prompt(&mut state.c_regs, true)?;
+            let reg = creg_prompt(state.c_regs_as_mut(), true)?;
 
             println!("Classical register of size: {}", reg.len());
             println!("{:?}", reg);
         }
         RegisterType::Quantum => {
-            let reg = qreg_prompt(&mut state.q_regs, true)?;
+            let reg = qreg_prompt(state.q_regs_as_mut(), true)?;
 
             println!("Quantum register of size: {}", reg.size());
             reg.print_state();
@@ -484,7 +333,7 @@ fn handle_show(state: &mut State) -> Result<(), InquireError> {
 }
 
 fn handle_circuit(state: &mut State) -> Result<(), InquireError> {
-    let register = qreg_prompt(&mut state.q_regs, true)?;
+    let register = qreg_prompt(state.q_regs_as_mut(), true)?;
     display_circuit(register.history(), register.size());
 
     Ok(())
@@ -505,11 +354,11 @@ fn handle_create(state: &mut State) -> Result<(), InquireError> {
     // Construct register
     match reg_type {
         RegisterType::Classical => {
-            state.c_regs.insert(reg_name, reg_state.clone());
+            state.insert_c_reg(reg_name, reg_state.clone());
         }
         RegisterType::Quantum => {
             let reg = HistoryQRegister::new(reg_state.as_slice());
-            state.q_regs.insert(reg_name, reg);
+            state.insert_q_reg(reg_name, reg);
         }
     };
 
@@ -557,8 +406,8 @@ fn handle_openqasm(state: &mut State) -> Result<(), InquireError> {
     let qregs: HashMap<String, HistoryQRegister> = res.qregs.into_iter().map(|(k,v)| (k, HistoryQRegister::from_register(v))).collect();
 
     // Add the result from the openqasm file to the state of the simulation
-    state.q_regs.extend(qregs);
-    state.c_regs.extend(res.cregs);
+    state.extend_q_regs(qregs);
+    state.extend_c_regs(res.cregs);
 
     Ok(())
 }
@@ -574,56 +423,6 @@ struct Args {
 
 use quaru::cli_utils::display::{display_circuit, IdentfiableOperation};
 
-type RegCollection<T> = HashMap<String, T>;
-type QRegCollection = RegCollection<HistoryQRegister>;
-type CRegCollection = RegCollection<Vec<bool>>;
-
-/// The state of the simulator
-struct State {
-    q_regs: QRegCollection,
-    c_regs: CRegCollection,
-}
-
-struct HistoryQRegister {
-    register: Register,
-    history: Vec<IdentfiableOperation>,
-}
-
-impl HistoryQRegister  {
-    fn new(input_bits: &[bool]) -> HistoryQRegister {
-        let register = Register::new(input_bits);
-        let history: Vec<IdentfiableOperation> = Vec::new();
-
-        HistoryQRegister { register, history }
-    }
-
-    fn size(&self) -> usize {
-        self.register.size()
-    }
-
-    fn history(&self) -> Vec<IdentfiableOperation> {
-        self.history.clone()
-    }
-
-    fn print_state(&self) {
-        self.register.print_state()
-    }
-
-    fn apply(&mut self, op: &IdentfiableOperation) {
-        self.history.push(op.clone());
-        self.register.apply(&op.operation());
-    }
-
-    fn from_register(register: Register) -> HistoryQRegister {
-        HistoryQRegister { register, history: Vec::new() }
-    }
-
-    fn measure(&mut self, index: usize) -> bool {
-        self.register.measure(index)
-    }
-}
-
-
 
 /// Runs the Quaru shell.
 fn main() {
@@ -632,17 +431,14 @@ fn main() {
     println!("{QUARU}");
 
     // Initialize the state of the simulator
-    let mut state = State {
-        q_regs: HashMap::new(),
-        c_regs: HashMap::new(),
-    };
+    let mut state = State::new();
 
     // Size arg is optional. Create quantum register on startup if size arg is supplied.
     if let Some(n) = args.size {
         // Create initial register
         let init_state = &[false].repeat(n);
         let reg = HistoryQRegister::new(init_state.as_slice());
-        state.q_regs.insert("qreg0".to_string(), reg);
+        state.insert_q_reg("qreg0".to_string(), reg);
     }
 
     // Clear terminal

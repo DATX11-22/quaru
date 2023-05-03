@@ -5,6 +5,7 @@ use crate::{
 };
 use ndarray::{array, linalg, Array2};
 use rand::prelude::*;
+extern crate arrayfire as af;
 
 /// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
@@ -135,6 +136,26 @@ impl Register {
         self.try_apply(op).expect("Coult not apply operation")
     }
 
+    fn ndarray_to_arrayfire(input: &Array2<c64>) -> af::Array<c64> {
+        let data_vec: Vec<c64> = input.iter().cloned().collect();
+
+        let af_array = af::Array::new(&data_vec, af::Dim4::new(&[input.shape()[0] as u64, input.shape()[1] as u64, 1, 1]));
+
+        af_array
+    }
+
+    fn arrayfire_to_ndarray(af_array: &af::Array<c64>) -> Array2<c64> {
+        let af_dims = af_array.dims();
+        let shape = (af_dims[0] as usize, af_dims[1] as usize);
+
+        let mut data: Vec<c64> = vec![c64::default(); af_dims.elements() as usize];
+        af_array.host(&mut data);
+
+        let ndarray = Array2::from_shape_vec(shape, data).expect("Converting to ndarray failed");
+
+        ndarray
+    }
+
     pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {
         // Check operation validity
         let expected_size = op.targets().len();
@@ -179,8 +200,14 @@ impl Register {
         // Tensor product of operation matrix and identity
         let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
 
-        // Calculate new state
-        permuted_state = matrix.dot(&permuted_state);
+        // Calculate new state without GPU
+        //permuted_state = matrix.dot(&permuted_state);
+
+        // Calculate new state with GPU
+        let af_permuted_state = Self::ndarray_to_arrayfire(&permuted_state);
+        let af_matrix = Self::ndarray_to_arrayfire(&matrix);
+        let af_new_permuted_state = af::matmul(&af_matrix, &af_permuted_state, af::MatProp::NONE, af::MatProp::NONE);
+        permuted_state = Self::arrayfire_to_ndarray(&af_new_permuted_state);
 
         // Permute back, similar to above but backwards (perm[k] -> k instead of the other way around)
         for i in 0..permuted_state.len() {

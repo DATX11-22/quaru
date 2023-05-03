@@ -9,4 +9,4 @@ pub mod math;
 pub mod openqasm;
 pub mod operation;
 pub mod register;
-pub mod display;
+pub mod cli_utils;

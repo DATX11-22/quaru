@@ -572,7 +572,7 @@ struct Args {
     size: Option<usize>,
 }
 
-use quaru::display::{display_circuit, IdentfiableOperation};
+use quaru::cli_utils::display::{display_circuit, IdentfiableOperation};
 
 type RegCollection<T> = HashMap<String, T>;
 type QRegCollection = RegCollection<HistoryQRegister>;

@@ -5,9 +5,9 @@ use crate::{
 };
 use af::dim4;
 use ndarray::{array, linalg, Array2};
+use num::Zero;
 use rand::prelude::*;
 extern crate arrayfire as af;
-use arrayfire::view;
 
 /// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
@@ -58,6 +58,34 @@ fn kronecker(a: &af::Array<c64>, b: &af::Array<c64>) -> af::Array<c64> {
             let col_seq = af::Seq::new((j * b_cols) as f64, ((j + 1) * b_cols - 1) as f64, 1.0);
             af::assign_seq(&mut result, &[row_seq, col_seq], &subarray);
         }
+    }
+
+    result
+}
+
+fn kronecker_identity(id_size: u64, a: &af::Array<c64>) -> af::Array<c64> {
+    let a_rows = a.dims()[0];
+    let a_cols = a.dims()[1];
+
+    let mut result = af::constant!(c64::zero(); a_rows*id_size, a_cols*id_size);
+
+    for i in 0..id_size {
+        let row_seq = af::Seq::new((i * a_rows) as u32, ((i + 1) * a_rows - 1) as u32, 1);
+        let col_seq = af::Seq::new((i * a_cols) as u32, ((i + 1) * a_cols - 1) as u32, 1);
+        af::assign_seq(&mut result, &[row_seq, col_seq], &a);
+    }
+
+    result
+}
+
+fn kronecker_identity_cpu(id_size: usize, a: &Array2<c64>) -> Array2<c64> {
+    let a_rows = a.shape()[0];
+    let a_cols = a.shape()[1];
+
+    let mut result = Array2::zeros((a_rows*id_size, a_cols*id_size));
+
+    for i in 0..id_size {
+        result.slice_mut(ndarray::s![i * a_rows..(i + 1) * a_rows, i * a_cols..(i + 1) * a_cols]).assign(a);
     }
 
     result
@@ -228,6 +256,8 @@ impl Register {
         // Without GPU
         // Tensor product of operation matrix and identity
         //let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
+        // ~6% faster for shor's:
+        //let matrix = kronecker_identity_cpu(1 << (self.size - op.arity()), &op.matrix());
 
         // Calculate new state
         //permuted_state = matrix.dot(&permuted_state);
@@ -235,8 +265,7 @@ impl Register {
         // With GPU
         // Tensor product of operation matrix and identity
         let af_op_matrix = Self::ndarray_to_arrayfire(&op.matrix());
-        let af_identity = af::identity(dim4!(1<<(self.size - op.arity()), 1<<(self.size - op.arity())));
-        let af_matrix = kronecker(&af_identity, &af_op_matrix);
+        let af_matrix = kronecker_identity(1<<(self.size - op.arity()), &af_op_matrix);
 
         // Calculate new state
         let af_permuted_state = Self::ndarray_to_arrayfire(&permuted_state);

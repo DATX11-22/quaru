@@ -6,8 +6,25 @@ use quaru::{
 };
 use stopwatch::Stopwatch;
 
+
 fn main() {
-    let size = 10 as usize;
+
+
+    let mut reg = Register::new(&[false ;2]);
+
+    let mut circ = QuantumCircuit::new();
+    circ.add_operation(hadamard(0));
+    circ.add_operation(cnot(0, 1));
+
+    circ.reduce_gates_with_one_off_size(2);
+
+    reg.apply_circuit(&mut circ);
+
+    reg.print_probabilities();
+
+
+
+    let size = 12 as usize;
     let mut init_vec = Vec::<bool>::new();
     for i in 0..size {
         init_vec.push(false);
@@ -19,10 +36,18 @@ fn main() {
     println!("Before circuit");
     let sw = Stopwatch::start_new();
     for i in 0..size / 2 {
-        circ.add_operation(hadamard(i));
-        circ.add_operation(cnot(i, size - i - 1));
+        circ.add_operation(hadamard(i*2));
+        circ.add_operation(cnot(i*2, i*2+1));
     }
-    circ.reduce_non_overlapping_gates();
+
+
+    //timestamps are at 12 qubits
+    circ.reduce_non_overlapping_gates(); //825ms
+    // circ.reduce_gates_with_one_off_size(2); //700ms
+
+    //Together : 920ms
+    //Nothing :  1674ms
+
     reg.apply_circuit(&mut circ);
     let circ_time = sw.elapsed_ms();
     println!("After circuit: ");
@@ -33,8 +58,8 @@ fn main() {
     reg = Register::new(&init_vec);
     let sw = Stopwatch::start_new();
     for i in 0..size / 2 {
-        reg.apply(&hadamard(i));
-        reg.apply(&cnot(i, size - i - 1));
+        reg.apply(&hadamard(i*2));
+        reg.apply(&cnot(i*2, i*2+1));
     }
     let reg_time = sw.elapsed_ms();
     println!("After normal apply: ");

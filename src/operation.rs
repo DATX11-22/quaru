@@ -109,6 +109,90 @@ impl QuantumCircuit {
     pub fn get_conditional_operations(&mut self) -> &Vec<(Operation, Vec<(usize, bool)>)> {
         &self.conditional_operations
     }
+
+    /// Reduces the circuit by combining gates with overlapping targets
+    /// Migth be slower if used after reduce_non_overlapping_gates
+    pub fn reduce_gates_with_one_off_size(&mut self, max_size : usize) -> &mut Self {
+        //No gates of same size on same targets left
+        self.reduce_circuit_gates_with_same_targets();
+        let mut i = 0;
+        let ops = &self.operations;
+        let mut new_ops: Vec<Operation> = Vec::new();
+        let len = ops.len(); 
+        while i < len {
+            if i == len - 1 {
+                new_ops.push(ops[i].clone());
+                break;
+            }
+            let j = i + 1;
+            let op = &ops[i];
+            let next_op = &ops[j];
+            if op.targets().len() > max_size || next_op.targets().len() > max_size {
+                new_ops.push(op.clone());
+                i += 1;
+                continue;
+            }
+            if self.operations_overlap(op.clone(), next_op.clone()){
+                let combined_op = self.combine_ops(op.clone(), next_op.clone());
+                new_ops.push(combined_op);
+                i += 2;
+            } else {
+                new_ops.push(op.clone());
+                i += 1;
+            }
+            
+
+
+        }
+        self.operations = new_ops;
+        self
+    }
+    /// Combines two operations with overlapping targets
+    fn combine_ops(&self, op1 : Operation, op2 : Operation) -> Operation {
+        if op1.targets().len() > 2 || op2.targets().len() > 2 {
+            panic!("Cannot combine operations with more than 2 targets");
+        }
+        let mut matrix = op1.matrix();
+        let mut targets = op1.targets().clone();
+        let diff : i32 = op1.targets.len() as i32- op2.targets().len() as i32;
+        //op1 is smaller
+        if diff < 0 {
+            //extend bottom
+            targets = op2.targets().clone();
+            if op1.targets[0] == op2.targets()[0]{
+                matrix = linalg::kron(&Array2::eye(2), &op1.matrix());
+                matrix = op2.matrix().dot(&matrix);
+            }
+            else {
+                matrix = linalg::kron(&op1.matrix(), &Array2::eye(2));
+                matrix = op2.matrix().dot(&matrix);
+            }
+        }
+        else {
+            targets = op1.targets().clone();
+            if op2.targets[0] == op1.targets[0] {
+                matrix = linalg::kron(&Array2::eye(2), &op2.matrix());
+                matrix = op1.matrix().dot(&matrix);
+            }
+            else {
+                matrix = linalg::kron(&op2.matrix(), &Array2::eye(2));
+                matrix = op1.matrix().dot(&matrix);
+            }
+        }
+
+        Operation::new(matrix, targets).unwrap()
+
+        
+    }
+    fn operations_overlap(&self, op1 : Operation, op2 : Operation) -> bool {
+        for target in op1.targets() {
+            if op2.targets().contains(&target) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Reduces the circuit by cancelling gates that cancel each other out.
     pub fn reduce_circuit_cancel_gates(&mut self) -> &mut Self {
         let mut i = 0;

@@ -12,11 +12,11 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
     for _ in 0..size + (size - 1) {
         circuit.push(String::new());
     }
-    for i in 0..circuit.len() {
+    for (i, q) in circuit.iter_mut().enumerate() {
         if i % 2 == 1 {
-            circuit[i].push_str("    ");
+            q.push_str("    ");
         } else {
-            circuit[i].push_str(&format!("|q{}>", i/2));
+            q.push_str(&format!("|q{}>", i/2));
         }
     }
 
@@ -33,27 +33,27 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
             match idop.identifier {
                 OperationIdentifier::CNot => {
                     // Write CNOT symbol
-                    circuit[target1 * 2].push_str("X");
-                    circuit[target2 * 2].push_str("O"); // Control
+                    circuit[target1 * 2].push('X');
+                    circuit[target2 * 2].push('O'); // Control
                 }
                 OperationIdentifier::Swap => {
                     // Write Swap symbol
-                    circuit[target1 * 2].push_str("X");
-                    circuit[target2 * 2].push_str("X");
+                    circuit[target1 * 2].push('X');
+                    circuit[target2 * 2].push('X');
                 }
                 _ => {}
             }
 
-            for i in 0..circuit.len() {
+            for (i, q) in circuit.iter_mut().enumerate() {
                 if i == target1*2 || i == target2*2 {
                     continue;
                 }
                 if (target1*2..target2*2).contains(&i) || (target2*2..target1*2).contains(&i) {
-                    circuit[i].push_str("|");
+                    q.push('|');
                 } else if i % 2 == 0 {
-                    circuit[i].push_str("―");
+                    q.push('―');
                 } else {
-                    circuit[i].push_str(" ");
+                    q.push(' ');
                 }
             }
         } else {
@@ -63,43 +63,43 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
             match idop.identifier {
                 OperationIdentifier::Identity => {
                     // Write Identity symbol
-                    circuit[target * 2].push_str("I");
+                    circuit[target * 2].push('I');
                 }
                 OperationIdentifier::Hadamard => {
                     // Write Hadamard symbol
-                    circuit[target * 2].push_str("H");
+                    circuit[target * 2].push('H');
                 }
                 OperationIdentifier::Phase => {
                     // Write Phase symbol
-                    circuit[target * 2].push_str("P");
+                    circuit[target * 2].push('P');
                 }
                 OperationIdentifier::Not => {
                     // Write Not symbol
-                    circuit[target * 2].push_str("X");
+                    circuit[target * 2].push('X');
                 }
                 OperationIdentifier::PauliY => {
                     // Write Pauli Y symbol
-                    circuit[target * 2].push_str("Y");
+                    circuit[target * 2].push('Y');
                 }
                 OperationIdentifier::PauliZ => {
                     // Write Pauli Z symbol
-                    circuit[target * 2].push_str("Z");
+                    circuit[target * 2].push('Z');
                 }
                 _ => {}
             }
-            for i in 0..circuit.len() {
+            for (i, q) in circuit.iter_mut().enumerate() {
                 if i == target * 2 {
                     continue;
                 }
                 if i % 2 == 0 {
-                    circuit[i].push_str("―");
+                    q.push('―');
                 } else {
-                    circuit[i].push_str(" ");
+                    q.push(' ');
                 }
             }
         }
     }
-    circuit.iter().for_each(|l| println!("{}", l));
+    circuit.iter().for_each(|l| println!("{l}"));
 }
 
 /// An operation with an identifier.

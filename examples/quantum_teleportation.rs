@@ -27,8 +27,8 @@ fn main() {
 
     let q0 = array![[c64::new(args.a, args.b)], [c64::new(args.c, args.d)]];
     let (is_equal, result) = test_quantum_teleportation(q0.clone());
-    println!("Expected:\n{}\n", q0);
-    println!("Got:\n{}\n", result);
+    println!("Expected:\n{q0}\n");
+    println!("Got:\n{result}\n");
     if is_equal {
         println!("Correct");
     } else {
@@ -40,18 +40,18 @@ fn test_quantum_teleportation(q0: Array2<c64>) -> (bool, Array2<c64>) {
     // State with three qubits: two zeroes and q0.
     let new_state: Array2<c64> = linalg::kron(
         &linalg::kron(&to_qbit_vector(&false), &to_qbit_vector(&false)),
-        &q0.clone(),
+        &q0,
     );
 
     // Create register with state new_state
     let mut reg = Register::new(&[false; 3]);
-    reg.state = new_state.clone();
+    reg.state = new_state;
 
     // Run quantum teleportation algorithm
     quantum_teleportation(&mut reg);
 
     let result = get_state_of_qubit(reg.state.clone(), 2);
-    let is_equal = equal_qubits(result.clone(), q0.clone());
+    let is_equal = equal_qubits(result.clone(), q0);
     (is_equal, result)
 }
 

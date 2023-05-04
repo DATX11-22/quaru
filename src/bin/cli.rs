@@ -82,7 +82,7 @@ fn handle_show(state: &mut State) -> Result<(), InquireError> {
             let reg = creg_prompt(state.c_regs_as_mut(), true)?;
 
             println!("Classical register of size: {}", reg.len());
-            println!("{:?}", reg);
+            println!("{reg:?}");
         }
         RegisterType::Quantum => {
             let reg = qreg_prompt(state.q_regs_as_mut(), true)?;
@@ -143,7 +143,7 @@ fn handle_openqasm(state: &mut State) -> Result<(), InquireError> {
         match openqasm::run_openqasm(path) {
             Ok(_) => Ok(Validation::Valid),
             Err(e) => Ok(Validation::Invalid(
-                format!("Parsing error: {:?}", e).into(),
+                format!("Parsing error: {e:?}").into(),
             )),
         }
     };

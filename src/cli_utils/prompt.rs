@@ -1,151 +1,12 @@
-use inquire::{error::InquireError, validator::Validation, Select, Text};
-use std::{fmt::Display, vec}; 
+use inquire::{Select, InquireError, validator::Validation, Text};
 
-/// Initial choices
-enum Choice {
-    Show,
-    Circuit,
-    Apply,
-    Measure,
-    Create,
-    OpenQASM,
-    Exit,
-}
-
-impl Choice {
-    /// The possible actions the user can take. Which actions are available depend on the state
-    /// of the simulation.
-    fn choices(state: &State) -> Vec<Choice> {
-        let mut choices = Vec::new();
-        if !state.q_regs.is_empty() || !state.c_regs.is_empty() {
-            choices.append(&mut vec![Choice::Show]);
-        }
-        if !state.q_regs.is_empty() {
-            choices.append(&mut vec![Choice::Apply, Choice::Measure, Choice::Circuit]);
-        }
-
-        choices.append(&mut vec![Choice::Create, Choice::OpenQASM, Choice::Exit]);
-
-        choices
-    }
-}
-
-impl Display for Choice {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Choice::Apply => write!(f, "Apply"),
-            Choice::Measure => write!(f, "Measure"),
-            Choice::Show => write!(f, "Show"),
-            Choice::Circuit => write!(f, "Show Circuit"),
-            Choice::Create => write!(f, "Create register"),
-            Choice::OpenQASM => write!(f, "Run OpenQASM program"),
-            Choice::Exit => write!(f, "Exit"),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum OperationType {
-    Unary,
-    Binary,
-}
-
-impl OperationType {
-    fn types() -> Vec<OperationType> {
-        vec![OperationType::Unary, OperationType::Binary]
-    }
-
-    fn size(&self) -> usize {
-        match self {
-            OperationType::Unary => 1,
-            OperationType::Binary => 2,
-        }
-    }
-}
-
-impl Display for OperationType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            OperationType::Unary => write!(f, "Unary"),
-            OperationType::Binary => write!(f, "Binary"),
-        }
-    }
-}
-
-enum UnaryOperation {
-    Identity,
-    Hadamard,
-    Phase,
-    Not,
-    PauliY,
-    PauliZ,
-}
-
-impl UnaryOperation {
-    /// Returns a vector of every possible unary operation.
-    fn operations() -> Vec<UnaryOperation> {
-        vec![
-            UnaryOperation::Identity,
-            UnaryOperation::Hadamard,
-            UnaryOperation::Phase,
-            UnaryOperation::Not,
-            UnaryOperation::PauliY,
-            UnaryOperation::PauliZ,
-        ]
-    }
-}
-
-impl Display for UnaryOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnaryOperation::Identity => write!(f, "Identity"),
-            UnaryOperation::Hadamard => write!(f, "Hadamard"),
-            UnaryOperation::Phase => write!(f, "Phase"),
-            UnaryOperation::Not => write!(f, "NOT"),
-            UnaryOperation::PauliY => write!(f, "Pauli Y"),
-            UnaryOperation::PauliZ => write!(f, "Pauli Z"),
-        }
-    }
-}
-
-fn unary_operation_target_name(_: &UnaryOperation) -> [&str; 1] {
-    ["target"]
-}
-
-enum BinaryOperation {
-    CNot,
-    Swap,
-}
-
-impl BinaryOperation {
-    /// Returns a vector of every possible binary operation.
-    fn operations() -> Vec<BinaryOperation> {
-        vec![BinaryOperation::CNot, BinaryOperation::Swap]
-    }
-}
-
-impl Display for BinaryOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BinaryOperation::CNot => write!(f, "CNOT"),
-            BinaryOperation::Swap => write!(f, "Swap"),
-        }
-    }
-}
-
-fn binary_operation_target_names(op: &BinaryOperation) -> [&str; 2] {
-    match *op {
-        BinaryOperation::CNot => ["control", "target"],
-        _ => ["target"; 2],
-    }
-}
-
+use super::{types::{Choice, State, OperationType, UnaryOperation, BinaryOperation, RegisterType, RegCollection, QRegCollection, HistoryQRegister, CRegCollection}, display::IdentfiableOperation};
 
 /// Given a usize `max` prompts the user for a register size and returns a result containing a size.
 ///
 /// # Panics
 /// Panics if `max` == 0.
-fn size_prompt(max: usize) -> Result<usize, InquireError> {
+pub fn size_prompt(max: usize) -> Result<usize, InquireError> {
     assert!(max > 0, "Register size must be atleast 1");
 
     let options: Vec<usize> = (1..=max).collect();
@@ -160,7 +21,7 @@ fn size_prompt(max: usize) -> Result<usize, InquireError> {
 /// - Measuring a qubit
 /// - Creating a register
 /// - Exiting the application
-fn init_prompt(state: &State) -> Result<Choice, InquireError> {
+pub fn init_prompt(state: &State) -> Result<Choice, InquireError> {
     let options = Choice::choices(state);
     Select::new("Select an option: ", options).prompt()
 }
@@ -171,7 +32,7 @@ fn init_prompt(state: &State) -> Result<Choice, InquireError> {
 /// Types include:
 /// - Unary (if `size` >= 1)
 /// - Binary (if `size` >= 2)
-fn operation_prompt(size: usize) -> Result<OperationType, InquireError> {
+pub fn operation_prompt(size: usize) -> Result<OperationType, InquireError> {
     let options = OperationType::types()
         .into_iter()
         .filter(|op_type| op_type.size() <= size)
@@ -189,7 +50,7 @@ fn operation_prompt(size: usize) -> Result<OperationType, InquireError> {
 /// - Not
 /// - Pauli Y
 /// - Pauli Z
-fn unary_prompt() -> Result<UnaryOperation, InquireError> {
+pub fn unary_prompt() -> Result<UnaryOperation, InquireError> {
     let options = UnaryOperation::operations();
     Select::new("Select an operation: ", options).prompt()
 }
@@ -200,7 +61,7 @@ fn unary_prompt() -> Result<UnaryOperation, InquireError> {
 /// Operations include:
 /// - CNot
 /// - Swap
-fn binary_prompt() -> Result<BinaryOperation, InquireError> {
+pub fn binary_prompt() -> Result<BinaryOperation, InquireError> {
     let options = BinaryOperation::operations();
     Select::new("Select an operation: ", options).prompt()
 }
@@ -211,7 +72,7 @@ fn binary_prompt() -> Result<BinaryOperation, InquireError> {
 /// # Panics
 ///
 /// Panics if `N` is greater than `size`.
-fn indicies_prompt<const N: usize>(
+pub fn indicies_prompt<const N: usize>(
     target_names: [&str; N],
     size: usize,
     ) -> Result<Vec<usize>, InquireError> {
@@ -242,20 +103,8 @@ fn indicies_prompt<const N: usize>(
     Ok(targets)
 }
 
-#[derive(Debug)]
-enum RegisterType {
-    Classical,
-    Quantum,
-}
-
-impl Display for RegisterType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self, f)
-    }
-}
-
 /// Prompts the user for a type of register. Either `Quantum` or `Classical`
-fn register_type_prompt() -> Result<RegisterType, InquireError> {
+pub fn register_type_prompt() -> Result<RegisterType, InquireError> {
     Select::new(
         "Select the register type",
         vec![RegisterType::Quantum, RegisterType::Classical],
@@ -265,7 +114,7 @@ fn register_type_prompt() -> Result<RegisterType, InquireError> {
 
 /// Prompts the user for a register name. The name cannot be empty and must
 /// not already be used in the supplied `State`.
-fn register_name_prompt(state: &State) -> Result<String, InquireError> {
+pub fn register_name_prompt(state: &State) -> Result<String, InquireError> {
     // Validator that makes sure that the supplied register name is not empty
     let empty_str_validator = |s: &str| {
         if !s.is_empty() {
@@ -277,8 +126,8 @@ fn register_name_prompt(state: &State) -> Result<String, InquireError> {
 
     // Validator that makes sure that the supplied register name is not already
     // used by another register
-    let qreg_names: Vec<String> = state.q_regs.keys().cloned().collect();
-    let creg_names: Vec<String> = state.q_regs.keys().cloned().collect();
+    let qreg_names: Vec<String> = state.q_regs().keys().cloned().collect();
+    let creg_names: Vec<String> = state.q_regs().keys().cloned().collect();
     let no_duplicate_validator = move |s: &str| {
         let s = &s.to_string();
         if qreg_names.contains(s) || creg_names.contains(s) {
@@ -301,7 +150,7 @@ fn register_name_prompt(state: &State) -> Result<String, InquireError> {
 /// * `message` - The message which is displayed during the prompt
 /// * `registers` - The collection of registers to choose from
 /// * `autoselect` - Whether to autoselect a register if there is only one
-fn reg_prompt<T>(
+pub fn reg_prompt<T>(
     message: String,
     registers: &mut RegCollection<T>,
     autoselect: bool,
@@ -324,7 +173,7 @@ fn reg_prompt<T>(
 }
 
 /// Prompts the user for a quantum register in the specified register collection
-fn qreg_prompt(
+pub fn qreg_prompt(
     registers: &mut QRegCollection,
     autoselect: bool,
     ) -> Result<&mut HistoryQRegister, InquireError> {
@@ -332,7 +181,7 @@ fn qreg_prompt(
 }
 
 /// Prompts the user for a classical register in the specified register collection
-fn creg_prompt(
+pub fn creg_prompt(
     registers: &mut CRegCollection,
     autoselect: bool,
     ) -> Result<&mut Vec<bool>, InquireError> {
@@ -344,7 +193,7 @@ fn creg_prompt(
 }
 
 /// Like `creg_prompt` but with a custom message
-fn creg_prompt_message(
+pub fn creg_prompt_message(
     message: String,
     registers: &mut CRegCollection,
     autoselect: bool,
@@ -358,9 +207,9 @@ fn creg_prompt_message(
 /// # Panics
 ///
 /// Panics if `size` == 0.
-fn get_unary(size: usize) -> Result<IdentfiableOperation, InquireError> {
+pub fn get_unary(size: usize) -> Result<IdentfiableOperation, InquireError> {
     let unary_op = unary_prompt()?;
-    let target = indicies_prompt(unary_operation_target_name(&unary_op), size)?[0];
+    let target = indicies_prompt(UnaryOperation::target_name(&unary_op), size)?[0];
 
     let op = match unary_op {
         UnaryOperation::Identity => IdentfiableOperation::identity(target),
@@ -380,9 +229,9 @@ fn get_unary(size: usize) -> Result<IdentfiableOperation, InquireError> {
 /// # Panics
 ///
 /// Panics if `size` < 2.
-fn get_binary(size: usize) -> Result<IdentfiableOperation, InquireError> {
+pub fn get_binary(size: usize) -> Result<IdentfiableOperation, InquireError> {
     let binary_op = binary_prompt()?;
-    let targets = indicies_prompt(binary_operation_target_names(&binary_op), size)?;
+    let targets = indicies_prompt(BinaryOperation::target_names(&binary_op), size)?;
 
     let a = targets[0];
     let b = targets[1];

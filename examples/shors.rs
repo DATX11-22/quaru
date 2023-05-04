@@ -313,6 +313,9 @@ pub fn qft(n: usize) -> Option<Operation> {
 mod tests {
     use quaru::math::{equal_qubits, modpow};
     use quaru::register::Register;
+    use quaru::operation::Operation;
+    use quaru::math::c64;
+    use ndarray::{array, Array2, linalg};
 
     #[test]
     fn period_finder_working() {

@@ -48,7 +48,7 @@ fn main() {
             d2.to_string().yellow()
         );
         let t = sw.elapsed_ms();
-        runtimes.push(t);
+        if t > 1 {runtimes.push(t);} 
         println!("Time elapsed: {} ms", t.to_string().blue());
         println!("------------------------------------")
     }

@@ -73,6 +73,11 @@ impl Operation {
 
 /// A quantum circuit consisting of a sequence of operations.
 /// The circuit can be applied to a quantum register.
+/// 
+/// - `operations` corresponds to the sequence of operations
+/// - `measurement_targets` corresponds to the targets of the measurement operations
+/// - `conditional_operations` corresponds to the sequence of conditional operations
+/// 
 pub struct QuantumCircuit {
     pub(crate) operations: Vec<Operation>,
     measurement_targets: Vec<usize>,
@@ -80,7 +85,7 @@ pub struct QuantumCircuit {
 }
 
 impl QuantumCircuit {
-    /// Constructs a new quantum circuit.
+    /// Constructs a new empty quantum circuit.
     pub fn new() -> QuantumCircuit {
         QuantumCircuit {
             operations: Vec::new(),
@@ -88,9 +93,11 @@ impl QuantumCircuit {
             conditional_operations: Vec::new(),
         }
     }
+    /// Clears the operations in the quantum circuit.
     pub fn reset_register(&mut self) -> &mut Self {
         self.operations.clear();
         self.measurement_targets.clear();
+        self.conditional_operations.clear();
         self
     }
     pub fn get_operations(&self) -> &Vec<Operation> {
@@ -102,13 +109,10 @@ impl QuantumCircuit {
     pub fn get_conditional_operations(&mut self) -> &Vec<(Operation, Vec<(usize, bool)>)> {
         &self.conditional_operations
     }
-
+    /// Reduces the circuit by cancelling gates that cancel each other out.
     pub fn reduce_circuit_cancel_gates(&mut self) -> &mut Self {
-        //This function should maybe be called recursively
-        //all real and symetric unitary gates cancel each other out
         let mut i = 0;
         let ops = &self.operations.clone();
-        // let mut new_ops : Vec<Operation> = ops.clone();
         let mut new_ops: Vec<Operation> = Vec::new();
         while i < ops.len() {
             if i == ops.len() - 1 {
@@ -118,6 +122,7 @@ impl QuantumCircuit {
             let j = i + 1;
             let op = &ops[i];
             let next_op = &ops[j];
+            //all real and symetric unitary gates cancel each other out
             if op.matrix().iter().all(|x| x.im == 0.0) && *op == *next_op {
                 i += 1;
             } else {
@@ -126,25 +131,24 @@ impl QuantumCircuit {
             i += 1;
         }
         self.operations = new_ops;
+        //If any gates were removed we need to check again
         if self.operations.len() == ops.len() || self.operations.len() <= 1 {
             return self;
         }
         self.reduce_circuit_cancel_gates();
         self
     }
+    /// Reduces the circuit by multiplying gates with the same targets.
     pub fn reduce_circuit_gates_with_same_targets(&mut self) -> &mut Self {
         let mut i = 0;
         let ops = &self.operations;
         let mut new_ops: Vec<Operation> = Vec::new();
         let len = ops.len();
-        //self.clear_operations();
-        //inte alla likadana canclar varandra men här borde man kunna göra något smartare
-        //Om alla tal är reela så canclar dom varandra
         while i < len {
             let op = &ops[i];
 
             let mut matrix = op.matrix();
-            let mut targets = op.targets().clone();
+            let targets = op.targets().clone();
             let mut j = i + 1;
 
             while j < self.get_operations().len() && self.get_operations()[j].targets() == targets {
@@ -159,8 +163,7 @@ impl QuantumCircuit {
         self
     }
 
-    // reduces the circuit by combining gates that are not overlapping, essentially putting them i
-    //the same time slot without altering the program
+    /// Reduces the circuit by combining gates that are not overlapping, essentially putting them in the same time slot without altering the program.
     pub fn reduce_non_overlapping_gates(&mut self) -> &mut Self {
         let mut i = 0;
         let ops = &self.operations;
@@ -193,6 +196,7 @@ impl QuantumCircuit {
         self.operations.clear();
     }
     /// Adds an operation to the circuit.
+    /// ***Panics*** if the operation is added after a measurement.
     pub fn add_operation(&mut self, operation: Operation) {
         if operation
             .targets()
@@ -208,6 +212,7 @@ impl QuantumCircuit {
     }
 
     /// Adds a measurement to the circuit.
+    /// ***Panics*** if the measurement is added after another measurement.
     pub fn add_measurement(&mut self, target: usize) {
         if self.measurement_targets.contains(&target) {
             panic!("Cannot add measurement after measurement");
@@ -215,6 +220,9 @@ impl QuantumCircuit {
         self.measurement_targets.push(target);
     }
 
+    /// Adds a conditional operation to the circuit.
+    /// 
+    /// ***Panics*** if the operation is with a target that is not already measured.
     pub fn add_conditional_operation(
         &mut self,
         operation: Operation,

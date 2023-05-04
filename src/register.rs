@@ -289,7 +289,7 @@ impl Register {
         Ok(res)
     }
 
-    //applies a circuit and returns the results of the measurements
+    /// Applies a circuit to the register and returns the results of the measurements
     pub fn apply_circuit(&mut self, circuit: &mut QuantumCircuit) -> Vec<(usize, bool)> {
         for op in circuit.get_operations() {
             self.apply(
@@ -313,10 +313,9 @@ impl Register {
                 );
             }
         }
-        
         measures
-
     }
+    /// Measures the qubits in the circuit and returns the results
     pub fn measure_circuit(&mut self, circuit: &mut QuantumCircuit) -> Vec<(usize, bool)> {
         let mut res = Vec::new();
         for target in circuit.get_measurement_targets() {
@@ -329,6 +328,15 @@ impl Register {
         let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
             println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
+        }
+    }
+    /// Prints the probability in percent of falling into different states where the probability is not zero
+    pub fn print_nonzero_probabilities(&self) {
+        let n = self.size;
+        for (i, s) in self.state.iter().enumerate() {
+            if s.norm_sqr() > 0.0 {
+                println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
+            }
         }
     }
 

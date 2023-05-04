@@ -3,9 +3,11 @@ use crate::{
     math::{self, c64},
     operation::{Operation, QuantumOperation},
 };
+use af::dim4;
 use ndarray::{array, linalg, Array2};
 use rand::prelude::*;
 extern crate arrayfire as af;
+use arrayfire::view;
 
 /// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
@@ -35,6 +37,30 @@ pub struct Register {
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<math::c64>, // Should not be pub (it is pub now for testing purpouses)
     size: usize,
+}
+
+fn kronecker(a: &af::Array<c64>, b: &af::Array<c64>) -> af::Array<c64> {
+    let a_rows = a.dims()[0];
+    let a_cols = a.dims()[1];
+    let b_rows = b.dims()[0];
+    let b_cols = b.dims()[1];
+
+    let mut result = af::Array::new_empty(af::Dim4::new(&[a_rows * b_rows, a_cols * b_cols, 1, 1]));
+
+    let mut a_data = vec![c64::default(); a.elements() as usize];
+    a.host(&mut a_data);
+
+    for i in 0..a_rows {
+        for j in 0..a_cols {
+            let a_val = a_data[(j*a_rows+i) as usize];
+            let subarray = a_val * b;
+            let row_seq = af::Seq::new((i * b_rows) as f64, ((i + 1) * b_rows - 1) as f64, 1.0);
+            let col_seq = af::Seq::new((j * b_cols) as f64, ((j + 1) * b_cols - 1) as f64, 1.0);
+            af::assign_seq(&mut result, &[row_seq, col_seq], &subarray);
+        }
+    }
+
+    result
 }
 
 impl Register {
@@ -199,15 +225,21 @@ impl Register {
             permuted_state[(i, 0)] = self.state[(j, 0)];
         }
 
+        // Without GPU
         // Tensor product of operation matrix and identity
-        let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
+        //let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
 
-        // Calculate new state without GPU
+        // Calculate new state
         //permuted_state = matrix.dot(&permuted_state);
 
-        // Calculate new state with GPU
+        // With GPU
+        // Tensor product of operation matrix and identity
+        let af_op_matrix = Self::ndarray_to_arrayfire(&op.matrix());
+        let af_identity = af::identity(dim4!(1<<(self.size - op.arity()), 1<<(self.size - op.arity())));
+        let af_matrix = kronecker(&af_identity, &af_op_matrix);
+
+        // Calculate new state
         let af_permuted_state = Self::ndarray_to_arrayfire(&permuted_state);
-        let af_matrix = Self::ndarray_to_arrayfire(&matrix);
         // A * B = (B^T * A^T)^T
         let af_new_permuted_state = af::matmul(&af_permuted_state, &af_matrix, af::MatProp::NONE, af::MatProp::NONE);
         permuted_state = Self::arrayfire_to_ndarray(&af_new_permuted_state);

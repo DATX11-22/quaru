@@ -209,7 +209,7 @@ impl Default for State {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct HistoryQRegister {
     register: Register,
     history: Vec<IdentfiableOperation>,

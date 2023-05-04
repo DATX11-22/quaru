@@ -145,7 +145,9 @@ fn handle_openqasm(state: &mut State) -> Result<(), InquireError> {
         let path = Path::new(s);
         match openqasm::run_openqasm(path) {
             Ok(_) => Ok(Validation::Valid),
-            Err(e) => Ok(Validation::Invalid(format!("Parsing error: {e:?}").into())),
+            Err(e) => Ok(Validation::Invalid(
+                format!("Parsing error: {e:?}").into(),
+            )),
         }
     };
 

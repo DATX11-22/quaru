@@ -19,7 +19,7 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
         if i % 2 == 1 {
             q.push_str("    ");
         } else {
-            q.push_str(&format!("|q{}>", i / 2));
+            q.push_str(&format!("|q{}>", i/2));
         }
     }
 
@@ -48,12 +48,10 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
             }
 
             for (i, q) in circuit.iter_mut().enumerate() {
-                if i == target1 * 2 || i == target2 * 2 {
+                if i == target1*2 || i == target2*2 {
                     continue;
                 }
-                if (target1 * 2..target2 * 2).contains(&i)
-                    || (target2 * 2..target1 * 2).contains(&i)
-                {
+                if (target1*2..target2*2).contains(&i) || (target2*2..target1*2).contains(&i) {
                     q.push('|');
                 } else if i % 2 == 0 {
                     q.push('―');

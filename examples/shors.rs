@@ -247,6 +247,7 @@ fn find_period_circuit(number: u32, a: u32) -> u32 {
     circ.reduce_circuit_cancel_gates();
     circ.reduce_circuit_gates_with_same_targets();
     // circ.reduce_gates_until_too_big(3*n as u32);
+    circ.reduce_non_overlapping_gates();
     println!("APPLY CIRCUIT");
     let measures = reg.apply_circuit(&mut circ);
     for (i, m) in measures.iter(){

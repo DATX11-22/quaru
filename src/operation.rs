@@ -26,8 +26,9 @@
 //! let identity: Operation = identity(0);
 //! ```
 use crate::math::{c64, int_to_state, real_arr_to_complex};
-use ndarray::{linalg, Array};
 use ndarray::{array, Array2};
+use ndarray::{linalg, Array};
+use std::arch::x86_64::_SIDD_MASKED_NEGATIVE_POLARITY;
 use std::collections::HashSet;
 use std::{f64::consts, vec};
 
@@ -108,8 +109,8 @@ impl QuantumCircuit {
         let mut i = 0;
         let ops = &self.operations.clone();
         // let mut new_ops : Vec<Operation> = ops.clone();
-        let mut new_ops : Vec<Operation> = Vec::new();
-        while i < ops.len(){
+        let mut new_ops: Vec<Operation> = Vec::new();
+        while i < ops.len() {
             if i == ops.len() - 1 {
                 new_ops.push(ops[i].clone());
                 break;
@@ -117,34 +118,31 @@ impl QuantumCircuit {
             let j = i + 1;
             let op = &ops[i];
             let next_op = &ops[j];
-            if op.matrix().iter().all(|x| x.im == 0.0) 
-            && *op == *next_op
-            {
-                i+=1;
+            if op.matrix().iter().all(|x| x.im == 0.0) && *op == *next_op {
+                i += 1;
             } else {
                 new_ops.push(op.clone());
             }
-            i+=1;
+            i += 1;
         }
         self.operations = new_ops;
-        if self.operations.len() == ops.len() || self.operations.len() <= 1{
+        if self.operations.len() == ops.len() || self.operations.len() <= 1 {
             return self;
         }
         self.reduce_circuit_cancel_gates();
         self
-
     }
     pub fn reduce_circuit_gates_with_same_targets(&mut self) -> &mut Self {
-        let mut i= 0;
+        let mut i = 0;
         let ops = &self.operations;
-        let mut new_ops : Vec<Operation> = Vec::new();
+        let mut new_ops: Vec<Operation> = Vec::new();
         let len = ops.len();
         //self.clear_operations();
         //inte alla likadana canclar varandra men här borde man kunna göra något smartare
         //Om alla tal är reela så canclar dom varandra
         while i < len {
             let op = &ops[i];
-            
+
             let mut matrix = op.matrix();
             let mut targets = op.targets().clone();
             let mut j = i + 1;
@@ -152,84 +150,55 @@ impl QuantumCircuit {
             while j < self.get_operations().len() && self.get_operations()[j].targets() == targets {
                 let next_op = &self.get_operations()[j];
                 matrix = next_op.matrix().dot(&matrix);
-                j+=1;
+                j += 1;
             }
             new_ops.push(Operation::new(matrix, targets).expect("Could not create operation"));
             i = j;
         }
         self.operations = new_ops;
         self
-   }
-
-   pub fn reduce_gates_until_too_big(&mut self, reg_size : u32) -> &mut Self {
-    self.reduce_circuit_cancel_gates();
-    self.reduce_circuit_gates_with_same_targets();
-    //it is worth doing the combining as long as the gates are half the size of the register
-    let mut i = 0;
-    let ops = &self.operations;
-    let mut new_ops : Vec<Operation> = Vec::new();
-    let len = ops.len();
-    //This only looks at three gates at a time, it is possible to miss better overlaps 
-    // or even leave some gates uncombined
-    // It will also not combine tha last gate
-    while i < len - 2 {
-        let op = &ops[i];
-
-        if op.targets().len() > reg_size as usize / 2 {
-            new_ops.push(op.clone());
-            i+=1;
-            continue;
-        }
-
-        let next_op = &ops[i+1];
-        let next_next_op = &ops[i+2];
-
-        let op_targets = op.targets();
-        let next_op_targets = next_op.targets();
-        let next_next_op_targets = next_next_op.targets();
-
-        let op_set = op_targets.iter().collect::<HashSet<_>>();
-        let next_op_set = next_op_targets.iter().collect::<HashSet<_>>();
-        let next_next_op_set = next_next_op_targets.iter().collect::<HashSet<_>>();
-
-        let fst_target_overlap = op_set.intersection(&next_op_set).collect::<HashSet<_>>();
-        let snd_target_overlap = next_op_set.intersection(&next_next_op_set).collect::<HashSet<_>>();
-
-        if fst_target_overlap.len() > snd_target_overlap.len() {
-            let mut matrix = op.matrix().dot(&next_op.matrix());
-            let new_targets = op_set.union(&next_op_set).cloned().collect::<Vec<_>>()
-            .iter().map(|x| **x).collect::<Vec<_>>();
-            let new_op = Operation::new(matrix, new_targets).expect("Could not create operation");
-            new_ops.push(new_op);
-            i+=2;
-        } else {
-            new_ops.push(op.clone());
-            i+=1;
-        }
-
     }
 
+    // reduces the circuit by combining gates that are not overlapping, essentially putting them i
+    //the same time slot without altering the program
+    pub fn reduce_non_overlapping_gates(&mut self) -> &mut Self {
+        let mut i = 0;
+        let ops = &self.operations;
+        let mut new_ops: Vec<Operation> = Vec::new();
+        let len = ops.len();
+        while i < len {
+            let op = &ops[i];
+            let mut matrix = op.matrix();
+            let mut targets: Vec<usize> = Vec::new();
+            targets.append(&mut op.targets().clone());
+            let mut j = i + 1;
+            while j < len && !targets.iter().any(|x| ops[j].targets().contains(x)) {
+                let next_op = &self.get_operations()[j];
+                matrix = linalg::kron(&next_op.matrix(), &matrix).to_owned();
+                targets.append(&mut next_op.targets().clone());
 
-
-    self
-   }
-   fn extend_matricies_and_combine(&mut self, op1 : &Operation, op2 : &Operation) -> Operation {
-        let diff = op1.targets().len() - op2.targets().len();
-        if diff == 0 {
-            //This is hard, what if they have the same size but different targets?
-
+                j += 1;
+            }
+            new_ops.push(
+                Operation::new(matrix.clone(), targets.to_vec())
+                    .expect("Could not create operation"),
+            );
+            i = j;
         }
-
-        
-        Operation::new(op1.matrix().dot(&op2.matrix()), op1.targets().clone()).expect("Could not create operation")
-   }
-
+        self.operations = new_ops;
+        self
+    }
+    
     pub fn clear_operations(&mut self) {
         self.operations.clear();
     }
     /// Adds an operation to the circuit.
     pub fn add_operation(&mut self, operation: Operation) {
-        if operation.targets().iter().any(|x| self.measurement_targets.contains(x)) {
+        if operation
+            .targets()
+            .iter()
+            .any(|x| self.measurement_targets.contains(x))
+        {
             panic!("Cannot add operation after measurement");
         }
         if self.conditional_operations.len() > 0 {
@@ -246,19 +215,27 @@ impl QuantumCircuit {
         self.measurement_targets.push(target);
     }
 
-    pub fn add_conditional_operation(&mut self, operation: Operation, condition: Vec<(usize, bool)>) {
-        if operation.targets().iter().any(|x| self.measurement_targets.contains(x)) {
+    pub fn add_conditional_operation(
+        &mut self,
+        operation: Operation,
+        condition: Vec<(usize, bool)>,
+    ) {
+        if operation
+            .targets()
+            .iter()
+            .any(|x| self.measurement_targets.contains(x))
+        {
             panic!("Cannot add operation after measurement");
         }
-        if !condition.iter().all(|x : &(usize, bool) | self.measurement_targets.contains(&x.0)) {
+        if !condition
+            .iter()
+            .all(|x: &(usize, bool)| self.measurement_targets.contains(&x.0))
+        {
             panic!("Condition must be a measurement");
         }
         self.conditional_operations.push((operation, condition));
     }
-
-
 }
-
 
 // TODO: Check if we can return references instead?
 impl QuantumOperation for Operation {
@@ -474,12 +451,11 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::{
-        cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumOperation, QuantumCircuit,
+        cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumCircuit,
+        QuantumOperation,
     };
     use crate::math::c64;
     use ndarray::Array2;
@@ -537,10 +513,8 @@ mod tests {
         (a - b).iter().all(|e| e.norm() < tolerance)
     }
 
-
-
     #[test]
-    fn test_two_pair_of_same_gates_cancel_with_one_pair_in_middle(){
+    fn test_two_pair_of_same_gates_cancel_with_one_pair_in_middle() {
         let mut circuit = QuantumCircuit::new();
 
         circuit.add_operation(hadamard(0));
@@ -550,12 +524,11 @@ mod tests {
 
         circuit.add_operation(hadamard(0));
 
-
         circuit.reduce_circuit_cancel_gates();
         assert!(circuit.get_operations().len() == 0);
     }
     #[test]
-    fn test_gates_with_same_arity_and_target_mul_together(){
+    fn test_gates_with_same_arity_and_target_mul_together() {
         let mut circuit = QuantumCircuit::new();
 
         //Will multiply together
@@ -579,7 +552,7 @@ mod tests {
 
         assert!(circuit.get_operations().len() == 0);
     }
-    
+
     #[test]
     fn test_cnot_twice_cancels() {
         let mut circuit = QuantumCircuit::new();

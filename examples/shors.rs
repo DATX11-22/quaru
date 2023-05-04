@@ -136,12 +136,12 @@ fn shors(number: u32, fast: bool) -> u32 {
                 debug!("GCD({}-1, N) = {}", k, factor1);
                 debug!("GCD({}+1, N) = {}", k, factor2);
 
-                // At this point, both factor1 and factor2 are guaranteed to be
-                // non-trivial factors of N, so we can return either one.
-                // It is also be the case that factor1 * factor2 = N.
-                // BUG: find_period is not 100% accurate
-
-                return factor1;
+                if factor1 != 1 && factor1 != number {
+                    return factor1;
+                }
+                if factor2 != 1 && factor2 != number {
+                    return factor2;
+                }
             } else {
                 // We end up here if {gcd(k-1,N), gcd(k+1,N)} = {1, N}.
                 debug!("a^(r/2) = -1 (mod N), trying again");

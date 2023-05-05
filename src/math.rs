@@ -2,7 +2,8 @@
 
 use ndarray::{array, Array2};
 pub use num::complex::ComplexFloat;
-use num::Complex;
+use num::{Complex, Zero};
+extern crate arrayfire as af;
 
 /// Given a boolean value, returns the qubit vector representation of
 /// that value.
@@ -30,8 +31,8 @@ pub fn equal_qubits(a: Array2<Complex<f64>>, b: Array2<Complex<f64>>) -> bool {
 
 /// Given an 2-dimensional array consisting of floats, returns the
 /// complex version.
-pub fn real_arr_to_complex(matrix: Array2<f64>) -> Array2<c64> {
-    matrix.map(|e| real_to_complex(*e))
+pub fn real_arr_to_complex(matrix: Array2<f64>) -> af::Array<c64> {
+    ndarray_to_arrayfire(&matrix.map(|e| real_to_complex(*e)))
 }
 
 /// Given a real number `n` returns a complex number with real part `n` and
@@ -79,6 +80,67 @@ pub fn modpow(mut base: u32, mut exponent: u32, modulus: u32) -> u32 {
         base = base * base % modulus;
     }
     result
+}
+
+pub fn kronecker(a: &af::Array<c64>, b: &af::Array<c64>) -> af::Array<c64> {
+    let a_rows = a.dims()[0];
+    let a_cols = a.dims()[1];
+    let b_rows = b.dims()[0];
+    let b_cols = b.dims()[1];
+
+    let mut result = af::Array::new_empty(af::Dim4::new(&[a_rows * b_rows, a_cols * b_cols, 1, 1]));
+
+    let mut a_data = vec![c64::default(); a.elements() as usize];
+    a.host(&mut a_data);
+
+    for i in 0..a_rows {
+        for j in 0..a_cols {
+            let a_val = a_data[(j*a_rows+i) as usize];
+            let subarray = a_val * b;
+            let row_seq = af::Seq::new((i * b_rows) as f64, ((i + 1) * b_rows - 1) as f64, 1.0);
+            let col_seq = af::Seq::new((j * b_cols) as f64, ((j + 1) * b_cols - 1) as f64, 1.0);
+            af::assign_seq(&mut result, &[row_seq, col_seq], &subarray);
+        }
+    }
+
+    result
+}
+
+pub fn kronecker_identity(id_size: u64, a: &af::Array<c64>) -> af::Array<c64> {
+    let a_rows = a.dims()[0];
+    let a_cols = a.dims()[1];
+
+    let mut result = af::constant!(c64::zero(); a_rows*id_size, a_cols*id_size);
+
+    for i in 0..id_size {
+        let row_seq = af::Seq::new((i * a_rows) as u32, ((i + 1) * a_rows - 1) as u32, 1);
+        let col_seq = af::Seq::new((i * a_cols) as u32, ((i + 1) * a_cols - 1) as u32, 1);
+        af::assign_seq(&mut result, &[row_seq, col_seq], &a);
+    }
+
+    result
+}
+
+/// Note: transposes the array
+pub fn ndarray_to_arrayfire(input: &Array2<c64>) -> af::Array<c64> {
+    let data_vec: Vec<c64> = input.iter().cloned().collect();
+
+    let af_array = af::Array::new(&data_vec, af::Dim4::new(&[input.shape()[1] as u64, input.shape()[0] as u64, 1, 1]));
+
+    af_array
+}
+
+/// Note: transposes the array
+pub fn arrayfire_to_ndarray(af_array: &af::Array<c64>) -> Array2<c64> {
+    let af_dims = af_array.dims();
+    let shape = (af_dims[1] as usize, af_dims[0] as usize);
+
+    let mut data: Vec<c64> = vec![c64::default(); af_dims.elements() as usize];
+    af_array.host(&mut data);
+
+    let ndarray = Array2::from_shape_vec(shape, data).expect("Converting to ndarray failed");
+
+    ndarray
 }
 
 /// A 64-bit complex float.

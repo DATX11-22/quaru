@@ -209,7 +209,7 @@ impl Default for State {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HistoryQRegister {
     register: Register,
     history: Vec<IdentfiableOperation>,
@@ -240,8 +240,8 @@ impl HistoryQRegister  {
         self.register.apply(&op.operation());
     }
 
-    pub fn from_register(register: Register) -> HistoryQRegister {
-        HistoryQRegister { register, history: Vec::new() }
+    pub fn from_register(register: Register, history: Vec<IdentfiableOperation>) -> HistoryQRegister {
+        HistoryQRegister { register, history }
     }
 
     pub fn measure(&mut self, index: usize) -> bool {

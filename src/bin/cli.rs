@@ -1,9 +1,11 @@
 use clap::Parser;
 use inquire::{error::InquireError, validator::Validation, Text};
+use openqasm_parser::openqasm::BasicOp;
 use std::{collections::HashMap, path::Path};
 
 use quaru::{
     cli_utils::{
+        display::IdentfiableOperation,
         prompt::{
             creg_prompt, creg_prompt_message, get_binary, get_unary, indicies_prompt, init_prompt,
             operation_prompt, qreg_prompt, register_name_prompt, register_type_prompt, size_prompt,
@@ -11,6 +13,7 @@ use quaru::{
         types::{Choice, HistoryQRegister, OperationType, RegisterType, State},
     },
     openqasm,
+    register::Register,
 };
 
 /// Given a mutable simulator state `state` prompts the user for an operation and applies it to a
@@ -142,9 +145,7 @@ fn handle_openqasm(state: &mut State) -> Result<(), InquireError> {
         let path = Path::new(s);
         match openqasm::run_openqasm(path) {
             Ok(_) => Ok(Validation::Valid),
-            Err(e) => Ok(Validation::Invalid(
-                format!("Parsing error: {e:?}").into(),
-            )),
+            Err(e) => Ok(Validation::Invalid(format!("Parsing error: {e:?}").into())),
         }
     };
 
@@ -165,11 +166,19 @@ fn handle_openqasm(state: &mut State) -> Result<(), InquireError> {
     let res = openqasm::run_openqasm(Path::new(&filepath))
         .expect("Problem encountered when running OpenQASM program");
 
+    // Compute the list of operations for the OpenQASM program
+    let openqasm_ops: Vec<_> = res
+        .program
+        .get_basic_operations()
+        .into_iter()
+        .map(|op| op.1)
+        .collect();
+
     // Convert quantum registers to historical registers
     let qregs: HashMap<String, HistoryQRegister> = res
         .qregs
         .into_iter()
-        .map(|(k, v)| (k, HistoryQRegister::from_register(v)))
+        .map(|(k, v)| (k.clone(), openqasm_history_qreg(&k, v, &openqasm_ops)))
         .collect();
 
     // Add the result from the openqasm file to the state of the simulation
@@ -177,6 +186,44 @@ fn handle_openqasm(state: &mut State) -> Result<(), InquireError> {
     state.extend_c_regs(res.cregs);
 
     Ok(())
+}
+
+fn openqasm_history_qreg(
+    register_name: &String,
+    register: Register,
+    openqasm_operations: &Vec<BasicOp>,
+) -> HistoryQRegister {
+    let history: Vec<_> = openqasm_operations
+        .iter()
+        .filter(|op| {
+            // Filter out to only include gates applied on the current register
+            match op {
+                BasicOp::U(_, _, _, q) => &q.0 == register_name,
+                BasicOp::CX(q1, q2) => &q1.0 == register_name && &q2.0 == register_name,
+                BasicOp::Measure(q, _) => &q.0 == register_name,
+                BasicOp::ResetQ(_) => false,
+                BasicOp::ResetC(_) => false,
+            }
+        })
+        .filter_map(|op| {
+            // Map BasicOp -> Identifyable operation
+            match op {
+                BasicOp::U(theta, phi, lambda, qubit) => {
+                    println!("U {}", qubit.1);
+                    Some(IdentfiableOperation::u(*theta, *phi, *lambda, qubit.1))
+                }
+                BasicOp::CX(q1, q2) => {
+                    println!("CX {} {}", q1.1, q2.1);
+                    Some(IdentfiableOperation::cnot(q1.1, q2.1))
+                }
+                BasicOp::Measure(_, _) => None,
+                BasicOp::ResetQ(_) => None,
+                BasicOp::ResetC(_) => None,
+            }
+        })
+        .collect();
+
+    HistoryQRegister::from_register(register, history)
 }
 
 /// A cli-based ideal quantum computer simulator

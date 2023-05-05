@@ -110,8 +110,9 @@ impl QuantumCircuit {
         &self.conditional_operations
     }
 
-    /// Reduces the circuit by combining gates with overlapping targets
-    /// Migth be slower if used after reduce_non_overlapping_gates
+    /// Reduces the circuit by combining gates with overlapping targets.
+    /// Migth be slower if used after 
+    /// [`reduce_non_overlapping_gates`](#method.reduce_non_overlapping_gates)
     pub fn reduce_gates_with_one_off_size(&mut self, max_size : usize) -> &mut Self {
         //No gates of same size on same targets left
         self.reduce_circuit_gates_with_same_targets();
@@ -140,8 +141,6 @@ impl QuantumCircuit {
                 new_ops.push(op.clone());
                 i += 1;
             }
-            
-
 
         }
         self.operations = new_ops;

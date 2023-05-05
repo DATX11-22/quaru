@@ -42,8 +42,8 @@ fn main() {
 
 
     //timestamps are at 12 qubits
-    circ.reduce_non_overlapping_gates(); //825ms
-    // circ.reduce_gates_with_one_off_size(2); //700ms
+    // circ.reduce_non_overlapping_gates(); //825ms
+    circ.reduce_gates_with_one_off_size(2); //650ms
 
     //Together : 920ms
     //Nothing :  1674ms

@@ -81,6 +81,21 @@ pub fn modpow(mut base: u32, mut exponent: u32, modulus: u32) -> u32 {
     result
 }
 
+/// Calculate the kronecker product of an identity matrix of size id_size and a matrix a.
+/// Slighly faster than linalg::kron.
+pub fn kronecker_identity(id_size: usize, a: &Array2<c64>) -> Array2<c64> {
+    let a_rows = a.shape()[0];
+    let a_cols = a.shape()[1];
+
+    let mut result = Array2::zeros((a_rows*id_size, a_cols*id_size));
+
+    for i in 0..id_size {
+        result.slice_mut(ndarray::s![i * a_rows..(i + 1) * a_rows, i * a_cols..(i + 1) * a_cols]).assign(a);
+    }
+
+    result
+}
+
 /// A 64-bit complex float.
 #[allow(non_camel_case_types)]
 pub type c64 = Complex<f64>;

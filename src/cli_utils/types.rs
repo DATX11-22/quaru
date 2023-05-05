@@ -245,6 +245,7 @@ impl HistoryQRegister  {
     }
 
     pub fn measure(&mut self, index: usize) -> bool {
+        self.history.push(IdentfiableOperation::measure(index));
         self.register.measure(index)
     }
 }

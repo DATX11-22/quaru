@@ -201,23 +201,19 @@ fn openqasm_history_qreg(
                 BasicOp::U(_, _, _, q) => &q.0 == register_name,
                 BasicOp::CX(q1, q2) => &q1.0 == register_name && &q2.0 == register_name,
                 BasicOp::Measure(q, _) => &q.0 == register_name,
-                BasicOp::ResetQ(_) => false,
+                BasicOp::ResetQ(q) => &q.0 == register_name,
                 BasicOp::ResetC(_) => false,
             }
         })
         .filter_map(|op| {
-            // Map BasicOp -> Identifyable operation
+            // Map BasicOp -> Identifiable operation
             match op {
                 BasicOp::U(theta, phi, lambda, qubit) => {
-                    println!("U {}", qubit.1);
                     Some(IdentfiableOperation::u(*theta, *phi, *lambda, qubit.1))
                 }
-                BasicOp::CX(q1, q2) => {
-                    println!("CX {} {}", q1.1, q2.1);
-                    Some(IdentfiableOperation::cnot(q1.1, q2.1))
-                }
-                BasicOp::Measure(_, _) => None,
-                BasicOp::ResetQ(_) => None,
+                BasicOp::CX(q1, q2) => Some(IdentfiableOperation::cnot(q1.1, q2.1)),
+                BasicOp::Measure(q, _) => Some(IdentfiableOperation::measure(q.1)),
+                BasicOp::ResetQ(q) => Some(IdentfiableOperation::reset(q.1)),
                 BasicOp::ResetC(_) => None,
             }
         })

@@ -94,6 +94,14 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
                     // Write OpenQASM U gate symbol
                     circuit[target * 2].push('U');
                 }
+                OperationIdentifier::Measure => {
+                    // Write OpenQASM measure symbol
+                    circuit[target * 2].push('/');
+                }
+                OperationIdentifier::Reset => {
+                    // Write OpenQASM reset symbol
+                    circuit[target * 2].push('[');
+                }
                 _ => {}
             }
             for (i, q) in circuit.iter_mut().enumerate() {
@@ -177,6 +185,14 @@ impl IdentfiableOperation {
         )
     }
 
+    pub fn measure(qubit: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Measure, operation::identity(qubit))
+    }
+
+    pub fn reset(qubit: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Reset, operation::identity(qubit))
+    }
+
     /// Returns the operation.
     pub fn operation(&self) -> Operation {
         self.operation.clone()
@@ -204,6 +220,10 @@ pub enum OperationIdentifier {
     CNot,
     /// The Swap identifier.
     Swap,
+    /// The measure identifier.
+    Measure,
+    /// The reset identifier.
+    Reset,
 }
 
 #[cfg(test)]

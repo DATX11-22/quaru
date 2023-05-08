@@ -26,10 +26,8 @@
 //! let identity: Operation = identity(0);
 //! ```
 use crate::math::{c64, int_to_state, real_arr_to_complex};
+use ndarray::linalg;
 use ndarray::{array, Array2};
-use ndarray::{linalg, Array};
-use std::arch::x86_64::_SIDD_MASKED_NEGATIVE_POLARITY;
-use std::collections::HashSet;
 use std::{f64::consts, vec};
 
 // Naming?
@@ -73,11 +71,11 @@ impl Operation {
 
 /// A quantum circuit consisting of a sequence of operations.
 /// The circuit can be applied to a quantum register.
-/// 
+///
 /// - `operations` corresponds to the sequence of operations
 /// - `measurement_targets` corresponds to the targets of the measurement operations
 /// - `conditional_operations` corresponds to the sequence of conditional operations
-/// 
+///
 pub struct QuantumCircuit {
     pub(crate) operations: Vec<Operation>,
     measurement_targets: Vec<usize>,
@@ -111,15 +109,15 @@ impl QuantumCircuit {
     }
 
     /// Reduces the circuit by combining gates with overlapping targets.
-    /// Migth be slower if used after 
+    /// Might be slower if used after
     /// [`reduce_non_overlapping_gates`](#method.reduce_non_overlapping_gates)
-    pub fn reduce_gates_with_one_off_size(&mut self, max_size : usize) -> &mut Self {
+    pub fn reduce_gates_with_one_off_size(&mut self, max_size: usize) -> &mut Self {
         //No gates of same size on same targets left
         self.reduce_circuit_gates_with_same_targets();
         let mut i = 0;
         let ops = &self.operations;
         let mut new_ops: Vec<Operation> = Vec::new();
-        let len = ops.len(); 
+        let len = ops.len();
         while i < len {
             if i == len - 1 {
                 new_ops.push(ops[i].clone());
@@ -133,7 +131,7 @@ impl QuantumCircuit {
                 i += 1;
                 continue;
             }
-            if self.operations_overlap(op.clone(), next_op.clone()){
+            if self.operations_overlap(op.clone(), next_op.clone()) {
                 let combined_op = self.combine_ops(op.clone(), next_op.clone());
                 new_ops.push(combined_op);
                 i += 2;
@@ -141,49 +139,44 @@ impl QuantumCircuit {
                 new_ops.push(op.clone());
                 i += 1;
             }
-
         }
         self.operations = new_ops;
         self
     }
     /// Combines two operations with overlapping targets
-    fn combine_ops(&self, op1 : Operation, op2 : Operation) -> Operation {
+    fn combine_ops(&self, op1: Operation, op2: Operation) -> Operation {
         if op1.targets().len() > 2 || op2.targets().len() > 2 {
             panic!("Cannot combine operations with more than 2 targets");
         }
-        let mut matrix = op1.matrix();
-        let mut targets = op1.targets().clone();
-        let diff : i32 = op1.targets.len() as i32- op2.targets().len() as i32;
-        //op1 is smaller
-        if diff < 0 {
-            //extend bottom
-            targets = op2.targets().clone();
-            if op1.targets[0] == op2.targets()[0]{
-                matrix = linalg::kron(&Array2::eye(2), &op1.matrix());
-                matrix = op2.matrix().dot(&matrix);
+        let diff: i32 = op1.targets.len() as i32 - op2.targets().len() as i32;
+
+        let targets = if diff < 0 {
+            op2.targets().clone()
+        } else {
+            op1.targets().clone()
+        };
+
+        let matrix = if diff < 0 {
+            // op1 is smaller, extend bottom
+            if op1.targets[0] == op2.targets()[0] {
+                op2.matrix()
+                    .dot(&linalg::kron(&Array2::eye(2), &op1.matrix()))
+            } else {
+                op2.matrix()
+                    .dot(&linalg::kron(&op1.matrix(), &Array2::eye(2)))
             }
-            else {
-                matrix = linalg::kron(&op1.matrix(), &Array2::eye(2));
-                matrix = op2.matrix().dot(&matrix);
-            }
-        }
-        else {
-            targets = op1.targets().clone();
+        } else {
             if op2.targets[0] == op1.targets[0] {
-                matrix = linalg::kron(&Array2::eye(2), &op2.matrix());
-                matrix = op1.matrix().dot(&matrix);
+                op1.matrix()
+                    .dot(&linalg::kron(&Array2::eye(2), &op2.matrix()))
+            } else {
+                op1.matrix()
+                    .dot(&linalg::kron(&op2.matrix(), &Array2::eye(2)))
             }
-            else {
-                matrix = linalg::kron(&op2.matrix(), &Array2::eye(2));
-                matrix = op1.matrix().dot(&matrix);
-            }
-        }
-
+        };
         Operation::new(matrix, targets).unwrap()
-
-        
     }
-    fn operations_overlap(&self, op1 : Operation, op2 : Operation) -> bool {
+    fn operations_overlap(&self, op1: Operation, op2: Operation) -> bool {
         for target in op1.targets() {
             if op2.targets().contains(&target) {
                 return true;
@@ -274,7 +267,7 @@ impl QuantumCircuit {
         self.operations = new_ops;
         self
     }
-    
+
     pub fn clear_operations(&mut self) {
         self.operations.clear();
     }
@@ -304,7 +297,7 @@ impl QuantumCircuit {
     }
 
     /// Adds a conditional operation to the circuit.
-    /// 
+    ///
     /// ***Panics*** if the operation is with a target that is not already measured.
     pub fn add_conditional_operation(
         &mut self,

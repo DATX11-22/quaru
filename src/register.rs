@@ -1,12 +1,10 @@
 //! The `register` module provides quantum register functionality.
-use std::collections::{HashMap, HashSet};
 
 use crate::{
-    math::{self, c64, int_to_state},
+    math::{self, c64},
     operation::{Operation, QuantumCircuit, QuantumOperation},
 };
 use ndarray::{array, linalg, Array2};
-use num::PrimInt;
 use rand::prelude::*;
 
 /// Errors which can occur when an operation is applied on the register.

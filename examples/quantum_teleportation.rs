@@ -30,13 +30,11 @@ struct Args {
 fn main() {
     let args = Args::parse();
     let q0 = array![[c64::new(args.a, args.b)], [c64::new(args.c, args.d)]];
-    let (mut is_equal, mut result) = (false, Array2::<c64>::zeros((2, 1)));
-    if args.circuit {
-        (is_equal, result) = test_quantum_teleportation_cirquit(q0.clone());
+    let (is_equal, result) = if args.circuit {
+        test_quantum_teleportation_cirquit(q0.clone())
     } else {
-        (is_equal, result) = test_quantum_teleportation(q0.clone());
-    }
-    // let (is_equal, result) = test_quantum_teleportation(q0.clone());
+        test_quantum_teleportation(q0.clone())
+    };
     println!("Expected:\n{}\n", q0);
     println!("Got:\n{}\n", result);
     if is_equal {
@@ -73,11 +71,8 @@ fn test_quantum_teleportation_cirquit(q0: Array2<c64>) -> (bool, Array2<c64>) {
     // Create register with state new_state
     let mut reg = Register::new(&[false; 3]);
     reg.state = new_state.clone();
-
     let mut circ = quantum_teleportation_circuit();
-
     reg.apply_circuit(&mut circ);
-
     let result = get_state_of_qubit(reg.state.clone(), 2);
     let is_equal = equal_qubits(result.clone(), q0.clone());
     (is_equal, result)

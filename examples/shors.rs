@@ -272,7 +272,17 @@ fn find_period_circuit(number: u32, a: u32) -> u32 {
         res |= v << i;
     }
 
+    let theta = res as f64 / 2_f64.pow((2 * n) as f64);
+    debug!("theta = {}", theta);
+    // At this point, theta ≃ s/r, where s is a random number between 0 and r-1,
+    // and r is the period of a^x (mod N).
 
+    // Find the fraction s/r closest to theta with r < N (we know the period is less than N).
+    let r = limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1;
+
+    r
+
+}
 // See https://arxiv.org/pdf/quant-ph/0001066.pdf
 fn find_period_fast(number: u32, a: u32) -> u32 {
     debug!("Running fast period finding");

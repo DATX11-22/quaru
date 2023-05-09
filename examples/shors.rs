@@ -60,6 +60,10 @@ fn main() {
         println!("------------------------------------")
     }
 
+    if runtimes.len() == 0 {
+        println!("No runs took more than 1 ms");
+        return;
+    }
     let avg = runtimes.iter().sum::<i64>() / runtimes.len() as i64;
     let min = runtimes.iter().min().unwrap();
     println!(

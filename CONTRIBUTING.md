@@ -3,10 +3,10 @@
 ## Git Workflow
 
 ### Branches
-The project is divided up into three main branch areas: `main`, `dev` and `feature`. 
+The project is divided up into three main branch areas: `main`, `stable` and `feature`. 
 - `main` reflects the current version of the project.
-- `dev` reflects the current stable features in the project.
-- `feature` reflects a feature in progress. Named in the form: `<IssueNr>-<FeatureName>`, where spaces are replaced with "-". New feature branches are based on the `dev` branch or other feature branches. Most often, these branches are restricted to a few files not being worked upon in other branches to avoid conflicts.
+- `stable` reflects the current stable features in the project.
+- `feature` reflects a feature in progress. Named in the form: `<IssueNr>-<FeatureName>`, where spaces are replaced with "-". New feature branches are based on the `stable` branch or other feature branches. Most often, these branches are restricted to a few files not being worked upon in other branches to avoid conflicts.
 
 Additionally, there is the `hotfix` branch used for quick fixes of the `main` branch. New hotfix branches are based on the `main` branch as a result. 
 
@@ -28,7 +28,7 @@ Using both merging and rebasing is beneficial in order to maintain a clean commi
 - `rebase` is used for private branches. This is for example when a `feature` is based on another and can be reincorporated back into the original, as two commit histories may prove unnecessary. This gives the benefit of only having one `merge` in the end instead of two. **NOTE:** never rebase a public branch onto a private target as it leads to diverging commit histories!
 
 ### Pull Requests
-Once a feature is completed, a pull request of the feature branch should be made to merge with the `main` branch. These ***require*** peer review in order to be accepted. After being accepted, the corresponding issue should be closed and the feature branch deleted to avoid deprecated branching.
+Once a feature is completed, a pull request of the feature branch should be made to merge with the `stable` branch. These ***require*** peer review in order to be accepted. After being accepted, the corresponding issue should be closed and the feature branch deleted to avoid deprecated branching.
 **NOTE:** Merges should also in the majority of cases be squashed to avoid clutter in the commit history.
 
 ### Continuous Integration

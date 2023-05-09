@@ -3,7 +3,7 @@ use crate::{
     math::{self, c64},
     operation::{Operation, QuantumOperation},
 };
-use ndarray::{array, linalg, Array2};
+use ndarray::{array, linalg, Array1, Array2};
 use num::traits::Pow;
 use rand::prelude::*;
 
@@ -133,26 +133,55 @@ impl Register {
     /// **Panics** if the operation is invalid or contains target bits
     /// outside of the valid range [0, N)
     pub fn apply(&mut self, op: &Operation) -> &mut Self {
-        self.try_apply(op).expect("Coult not apply operation")
+        // self.try_apply(op).expect("Coult not apply operation")
+        self.try_apply_fast(op).expect("Could not apply operation")
     }
 
-    fn try_apply_fast(&mut self, op: &Operation) -> &mut Self {
-        if op.arity() > 1 {
-            return self.try_apply(op).expect("Could not apply operation");
+
+    pub fn try_apply_fast(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {
+        let expected_size = op.targets().len();
+        let (rows, cols) = (op.matrix().shape()[0], op.matrix().shape()[1]);
+        if (rows, cols) == (expected_size, expected_size) {
+            return Err(OperationError::InvalidDimensions(rows, cols));
         }
-        let k = op.targets()[0];
-        //måste hitta alla indexar som har bitindex k = 0
-
-
-        //000
-        //001
-        //010
-        //011
-        //100
-        //101
-        //110
-        //111
-        self
+        if let Some(dup_target) = get_duplicate(&op.targets()) {
+            return Err(OperationError::InvalidTarget(dup_target));
+        }
+        for target in op.targets() {
+            if target >= self.size() {
+                return Err(OperationError::InvalidTarget(target));
+            }
+        }
+        let mut new_state = self.state.clone();
+        for index in 0..2_i32.pow(self.size() as u32) {
+            if op.targets().iter().all(|&x| (index >> x) & 1 == 0) {
+                //all targets bitpositions are 0
+                // find all permutations of the target bits being one or zero
+                let mut permutations = Vec::new();
+                for i in 0..2_i32.pow(op.arity() as u32) {
+                    let mut permutation = index;
+                    for (j, &target) in op.targets().iter().enumerate() {
+                        if (i >> j) & 1 == 1 {
+                            permutation += 2_i32.pow(target as u32);
+                        }
+                    }
+                    permutations.push(permutation);
+                }
+                //create the array containing the values of the affected qubits
+                let mut arr : Array1<c64> = Array1::zeros(2_i32.pow(op.arity() as u32) as usize);
+                for (i, &p) in permutations.iter().enumerate() {
+                    arr[i] = self.state[[(p) as usize, 0]];
+                }
+                //apply the operation to the affected qubits
+                let res = op.matrix().dot(&arr);
+                //update the state
+                for (i, &p) in permutations.iter().enumerate() {
+                    new_state[[(p) as usize, 0]] = res[i];
+                }
+            }
+        }
+        self.state = new_state;
+        Ok(self)
     }
 
     pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {

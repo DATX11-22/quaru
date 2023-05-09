@@ -4,6 +4,7 @@ use crate::{
     operation::{Operation, QuantumOperation},
 };
 use ndarray::{array, linalg, Array2};
+use num::traits::Pow;
 use rand::prelude::*;
 
 /// Errors which can occur when an operation is applied on the register.
@@ -133,6 +134,25 @@ impl Register {
     /// outside of the valid range [0, N)
     pub fn apply(&mut self, op: &Operation) -> &mut Self {
         self.try_apply(op).expect("Coult not apply operation")
+    }
+
+    fn try_apply_fast(&mut self, op: &Operation) -> &mut Self {
+        if op.arity() > 1 {
+            return self.try_apply(op).expect("Could not apply operation");
+        }
+        let k = op.targets()[0];
+        //måste hitta alla indexar som har bitindex k = 0
+
+
+        //000
+        //001
+        //010
+        //011
+        //100
+        //101
+        //110
+        //111
+        self
     }
 
     pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {

@@ -8,7 +8,7 @@ fn main() {
     let registers = openqasm::run_openqasm(&qasm_path).ok().unwrap();
 
     for (name, qreg) in registers.qregs {
-        println!("\nQuatnum register: {}", name);
+        println!("\nQuatnum register: {name}");
         qreg.print_probabilities();
         println!();
     }

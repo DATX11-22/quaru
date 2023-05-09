@@ -159,9 +159,9 @@ pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
         matrix.row_mut(i)[i] = if i == winner { -1.0 } else { 1.0 };
     }
 
-    let op = Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
-        .expect("Could not create oracle operation");
-    op
+    
+    Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
+        .expect("Could not create oracle operation")
 }
 
 /// Creates the diffuser operation U_s used in the diffuser function
@@ -175,9 +175,9 @@ pub fn diffusion_operation(regsize: usize) -> Operation {
         matrix.row_mut(i)[i] = -1.0;
     }
 
-    let op = Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
-        .expect("Could not create diffuser operation");
-    op
+    
+    Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
+        .expect("Could not create diffuser operation")
 }
 
 /// Calculates the optimal number of iterations needed for U_sU_f
@@ -199,7 +199,7 @@ fn iterations_ceil(regsize: usize) -> usize {
 /// Uses Microsofts formula.
 /// https://learn.microsoft.com/en-us/azure/quantum/concepts-grovers
 fn iterations_ms(regsize: usize) -> usize {
-    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt() - 0.5 as f64).floor() as usize
+    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt() - 0.5_f64).floor() as usize
 }
 
 /// Calculates the optimal number of iterations needed for U_sU_f

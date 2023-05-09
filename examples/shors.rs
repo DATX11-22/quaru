@@ -41,7 +41,7 @@ fn main() {
     let mut runtimes = Vec::<i64>::new();
     for _ in 0..n_times {
         let sw = Stopwatch::start_new();
-        println!("Running for N = {}", number);
+        println!("Running for N = {number}");
 
         // Find a factor with shor's algorithm
         let d1 = shors(number, fast, use_circuit);
@@ -86,9 +86,9 @@ fn u_gate(targets: Vec<usize>, modulus: u32, a: u32, i: usize) -> operation::Ope
     // Create the function for the controlled u gate
     let func = |x: usize| -> usize { (x * a_pow_mod) % modulus as usize };
     // Create the gate
-    let u_gate = operation::to_quantum_gate(&func, targets.clone());
+    
 
-    u_gate
+    operation::to_quantum_gate(&func, targets)
 }
 
 /// Shor's algorithm
@@ -228,9 +228,9 @@ fn find_period_slow(number: u32, a: u32) -> u32 {
     // and r is the period of a^x (mod N).
 
     // Find the fraction s/r closest to theta with r < N (we know the period is less than N).
-    let r = limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1;
+    
 
-    r
+    limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1
 }
 
 fn find_period_circuit(number: u32, a: u32) -> u32 {

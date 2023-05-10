@@ -137,7 +137,7 @@ impl Register {
         self.try_apply_fast(op).expect("Could not apply operation")
     }
 
-
+    /// Tries to apply a quantum operation to the current state using fast Shrödinger simulation
     pub fn try_apply_fast(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {
         let expected_size = op.targets().len();
         let (rows, cols) = (op.matrix().shape()[0], op.matrix().shape()[1]);
@@ -153,22 +153,26 @@ impl Register {
             }
         }
         let mut new_state = self.state.clone();
-        for index in 0..2_i32.pow(self.size() as u32) {
+        for index in 0..1 << self.size() {
             if op.targets().iter().all(|&x| (index >> x) & 1 == 0) {
-                //all targets bitpositions are 0
-                // find all permutations of the target bits being one or zero
+                //All targets bitpositions are 0
+                //Find all permutations where the target bits are changed but all other bits are the same
                 let mut permutations = Vec::new();
-                for i in 0..2_i32.pow(op.arity() as u32) {
+                //Loop over the number of possible permutations of the target bits
+                for i in 0..1 << op.arity() {
+                    //set the base permutation to the current index
                     let mut permutation = index;
                     for (j, &target) in op.targets().iter().enumerate() {
+                        //For each target bit, we need to check if the jth bit of i is 1
+                        //if the jth bit of i is 1, then we need to flip the jth bit of the target
                         if (i >> j) & 1 == 1 {
-                            permutation += 2_i32.pow(target as u32);
+                            permutation |= 1 << target;
                         }
                     }
                     permutations.push(permutation);
                 }
                 //create the array containing the values of the affected qubits
-                let mut arr : Array1<c64> = Array1::zeros(2_i32.pow(op.arity() as u32) as usize);
+                let mut arr: Array1<c64> = Array1::zeros(1 << op.arity() as usize);
                 for (i, &p) in permutations.iter().enumerate() {
                     arr[i] = self.state[[(p) as usize, 0]];
                 }
@@ -176,7 +180,7 @@ impl Register {
                 let res = op.matrix().dot(&arr);
                 //update the state
                 for (i, &p) in permutations.iter().enumerate() {
-                    new_state[[(p) as usize, 0]] = res[i];
+                    new_state[[p as usize, 0]] = res[i];
                 }
             }
         }

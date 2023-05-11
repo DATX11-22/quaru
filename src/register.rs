@@ -5,9 +5,6 @@ use crate::{
 };
 use ndarray::{array, linalg, Array1, Array2};
 use rand::prelude::*;
-use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
 /// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
@@ -153,26 +150,13 @@ impl Register {
                 return Err(OperationError::InvalidTarget(target));
             }
         }
-        
+
         let mut new_state = self.state.clone();
-        let mut perm_and_res: Vec<(Vec<i32>, Array1<c64>)> = Vec::new();
-        //this loop should be possible to parallelize 
-        for index in 0..1 << self.size() {
-            perm_and_res.push(self.apply_gate_to_index(op, index));
-        }
-
-        for (permutations, res) in perm_and_res {
-            for (i, &p) in permutations.iter().enumerate() {
-                new_state[[p as usize, 0]] = res[i];
-            }
-        }
-
-        self.state = new_state;
-        Ok(self)
-    }
-
-    fn apply_gate_to_index(&self, op: &Operation, index: i32) -> (Vec<i32>, Array1<c64>) {
-        if op.targets().iter().all(|&x| (index >> x) & 1 == 0) {
+        let indecies =
+            (0..1 << self.size()).filter(|x| op.targets().iter().all(|&y| (x >> y) & 1 == 0));
+        //this loop should be possible to parallelize
+        //loop over every index where the target bits are 0
+        for index in indecies {
             //All targets bitpositions are 0
             //Find all permutations where the target bits are changed but all other bits are the same
             let mut permutations = Vec::new();
@@ -196,9 +180,12 @@ impl Register {
             }
             //apply the operation to the affected qubits
             let res = op.matrix().dot(&arr);
-            return (permutations, res);
+            for (i, &p) in permutations.iter().enumerate() {
+                new_state[[p as usize, 0]] = res[i];
+            }
         }
-        (vec![], Array1::zeros(0))
+        self.state = new_state;
+        Ok(self)
     }
 
     pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {

@@ -180,6 +180,7 @@ impl Register {
             }
             //apply the operation to the affected qubits
             let res = op.matrix().dot(&arr);
+            //set the new values of the affected qubits
             for (i, &p) in permutations.iter().enumerate() {
                 new_state[[p as usize, 0]] = res[i];
             }

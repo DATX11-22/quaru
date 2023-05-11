@@ -3,6 +3,7 @@ use clap::Parser;
 use ndarray::{array, linalg, Array2, ArrayBase, Dim, OwnedRepr};
 use num::Zero;
 use quaru::math::{c64, equal_qubits, to_qbit_vector};
+use quaru::operation::QuantumCircuit;
 use quaru::{operation, register::Register};
 
 #[derive(Parser, Debug)]
@@ -20,22 +21,29 @@ struct Args {
 
     #[arg(short, long, default_value_t = -0.6)]
     d: f64,
+    
+    #[arg(long, default_value_t = false)]
+    circuit : bool
+
 }
 
 fn main() {
     let args = Args::parse();
-
     let q0 = array![[c64::new(args.a, args.b)], [c64::new(args.c, args.d)]];
-    let (is_equal, result) = test_quantum_teleportation(q0.clone());
-    println!("Expected:\n{q0}\n");
-    println!("Got:\n{result}\n");
+    let (is_equal, result) = if args.circuit {
+        test_quantum_teleportation_cirquit(q0.clone())
+    } else {
+        test_quantum_teleportation(q0.clone())
+    };
+    println!("Expected:\n{}\n", q0);
+    println!("Got:\n{}\n", result);
+
     if is_equal {
         println!("Correct");
     } else {
         println!("WRONG!");
     }
 }
-
 fn test_quantum_teleportation(q0: Array2<c64>) -> (bool, Array2<c64>) {
     // State with three qubits: two zeroes and q0.
     let new_state: Array2<c64> = linalg::kron(
@@ -52,6 +60,22 @@ fn test_quantum_teleportation(q0: Array2<c64>) -> (bool, Array2<c64>) {
 
     let result = get_state_of_qubit(reg.state.clone(), 2);
     let is_equal = equal_qubits(result.clone(), q0);
+    (is_equal, result)
+}
+
+fn test_quantum_teleportation_cirquit(q0: Array2<c64>) -> (bool, Array2<c64>) {
+    // State with three qubits: two zeroes and q0.
+    let new_state: Array2<c64> = linalg::kron(
+        &linalg::kron(&to_qbit_vector(&false), &to_qbit_vector(&false)),
+        &q0.clone(),
+    );
+    // Create register with state new_state
+    let mut reg = Register::new(&[false; 3]);
+    reg.state = new_state.clone();
+    let mut circ = quantum_teleportation_circuit();
+    reg.apply_circuit(&mut circ);
+    let result = get_state_of_qubit(reg.state.clone(), 2);
+    let is_equal = equal_qubits(result.clone(), q0.clone());
     (is_equal, result)
 }
 
@@ -72,6 +96,26 @@ fn quantum_teleportation(reg: &mut Register) {
     if c_0 {
         reg.apply(&operation::pauli_z(2));
     }
+}
+fn quantum_teleportation_circuit() -> QuantumCircuit {
+    let mut circ = QuantumCircuit::new();
+
+    circ.add_operation(operation::hadamard(2));
+    circ.add_operation(operation::cnot(2, 1));
+    circ.add_operation(operation::cnot(0, 1));
+    circ.add_operation(operation::hadamard(0));
+
+    circ.add_measurement(1);
+    circ.add_measurement(0);
+
+    circ.add_conditional_operation(operation::not(2), vec![(1, true)]);
+    circ.add_conditional_operation(operation::pauli_z(2), vec![(0, true)]);
+
+    //should not do anything in this case
+    circ.reduce_circuit_cancel_gates();
+    circ.reduce_circuit_gates_with_same_targets();
+
+    circ
 }
 
 /// Get the state of the qubit at position n.
@@ -107,6 +151,14 @@ mod tests {
         for _ in 0..20 {
             let q0 = gen_qubit();
             let (is_equal, _) = super::test_quantum_teleportation(q0);
+            assert!(is_equal);
+        }
+    }
+    #[test]
+    fn qantum_teleportation_circuit() {
+        for _ in 0..20 {
+            let q0 = gen_qubit();
+            let (is_equal, _) = super::test_quantum_teleportation_cirquit(q0);
             assert!(is_equal);
         }
     }

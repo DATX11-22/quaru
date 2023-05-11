@@ -4,9 +4,8 @@ use crate::{
     math::{self, c64},
     operation::{Operation, QuantumCircuit, QuantumOperation},
 };
-use ndarray::{array, linalg, Array2};
+use ndarray::{array, linalg, Array1, Array2};
 use rand::prelude::*;
-
 /// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
@@ -133,7 +132,62 @@ impl Register {
     /// **Panics** if the operation is invalid or contains target bits
     /// outside of the valid range [0, N)
     pub fn apply(&mut self, op: &Operation) -> &mut Self {
-        self.try_apply(op).expect("Coult not apply operation")
+        // self.try_apply(op).expect("Coult not apply operation")
+        self.try_apply_fast(op).expect("Could not apply operation")
+    }
+
+    /// Tries to apply a quantum operation to the current state using fast Shrödinger simulation
+    pub fn try_apply_fast(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {
+        let expected_size = op.targets().len();
+        let (rows, cols) = (op.matrix().shape()[0], op.matrix().shape()[1]);
+        if (rows, cols) == (expected_size, expected_size) {
+            return Err(OperationError::InvalidDimensions(rows, cols));
+        }
+        if let Some(dup_target) = get_duplicate(&op.targets()) {
+            return Err(OperationError::InvalidTarget(dup_target));
+        }
+        for target in op.targets() {
+            if target >= self.size() {
+                return Err(OperationError::InvalidTarget(target));
+            }
+        }
+
+        let mut new_state = self.state.clone();
+        let indecies =
+            (0..1 << self.size()).filter(|x| op.targets().iter().all(|&y| (x >> y) & 1 == 0));
+        //this loop should be possible to parallelize
+        //loop over every index where the target bits are 0
+        for index in indecies {
+            //All targets bitpositions are 0
+            //Find all permutations where the target bits are changed but all other bits are the same
+            let mut permutations = Vec::new();
+            //Loop over the number of possible permutations of the target bits
+            for i in 0..1 << op.arity() {
+                //set the base permutation to the current index
+                let mut permutation = index;
+                for (j, &target) in op.targets().iter().enumerate() {
+                    //For each target bit, we need to check if the jth bit of i is 1
+                    //if the jth bit of i is 1, then we need to flip the jth bit of the target
+                    if (i >> j) & 1 == 1 {
+                        permutation |= 1 << target;
+                    }
+                }
+                permutations.push(permutation);
+            }
+            //create the array containing the values of the affected qubits
+            let mut arr: Array1<c64> = Array1::zeros(1 << op.arity() as usize);
+            for (i, &p) in permutations.iter().enumerate() {
+                arr[i] = self.state[[(p) as usize, 0]];
+            }
+            //apply the operation to the affected qubits
+            let res = op.matrix().dot(&arr);
+            //set the new values of the affected qubits
+            for (i, &p) in permutations.iter().enumerate() {
+                new_state[[p as usize, 0]] = res[i];
+            }
+        }
+        self.state = new_state;
+        Ok(self)
     }
 
     pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {

@@ -45,7 +45,7 @@ pub trait QuantumOperation {
 /// # Note
 /// In order for an operation to be considered valid, the matrix shape must be square
 /// with length equal to the number of operands.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Operation {
     matrix: Array2<c64>,
     targets: Vec<usize>,
@@ -69,6 +69,258 @@ impl Operation {
     }
 }
 
+/// A quantum circuit consisting of a sequence of operations.
+/// The circuit can be applied to a quantum register.
+///
+/// - `operations` corresponds to the sequence of operations
+/// - `measurement_targets` corresponds to the targets of the measurement operations
+/// - `conditional_operations` corresponds to the sequence of conditional operations
+///
+pub struct QuantumCircuit {
+    pub(crate) operations: Vec<Operation>,
+    measurement_targets: Vec<usize>,
+    conditional_operations: Vec<(Operation, Vec<(usize, bool)>)>,
+}
+
+impl QuantumCircuit {
+    /// Constructs a new empty quantum circuit.
+    pub fn new() -> QuantumCircuit {
+        QuantumCircuit {
+            operations: Vec::new(),
+            measurement_targets: Vec::new(),
+            conditional_operations: Vec::new(),
+        }
+    }
+    /// Clears the operations in the quantum circuit.
+    pub fn reset_register(&mut self) -> &mut Self {
+        self.operations.clear();
+        self.measurement_targets.clear();
+        self.conditional_operations.clear();
+        self
+    }
+    pub fn get_operations(&self) -> &Vec<Operation> {
+        &self.operations
+    }
+    pub fn get_measurement_targets(&mut self) -> &Vec<usize> {
+        &self.measurement_targets
+    }
+    pub fn get_conditional_operations(&mut self) -> &Vec<(Operation, Vec<(usize, bool)>)> {
+        &self.conditional_operations
+    }
+
+    /// Reduces the circuit by combining gates with overlapping targets.
+    /// Might be slower if used after
+    /// [`reduce_non_overlapping_gates`](#method.reduce_non_overlapping_gates)
+    pub fn reduce_gates_with_one_off_size(&mut self, max_size: usize) -> &mut Self {
+        //No gates of same size on same targets left
+        self.reduce_circuit_gates_with_same_targets();
+        let mut i = 0;
+        let ops = &self.operations;
+        let mut new_ops: Vec<Operation> = Vec::new();
+        let len = ops.len();
+        while i < len {
+            if i == len - 1 {
+                new_ops.push(ops[i].clone());
+                break;
+            }
+            let j = i + 1;
+            let op = &ops[i];
+            let next_op = &ops[j];
+            if op.targets().len() > max_size || next_op.targets().len() > max_size {
+                new_ops.push(op.clone());
+                i += 1;
+                continue;
+            }
+            if self.operations_overlap(op.clone(), next_op.clone()) {
+                let combined_op = self.combine_ops(op.clone(), next_op.clone());
+                new_ops.push(combined_op);
+                i += 2;
+            } else {
+                new_ops.push(op.clone());
+                i += 1;
+            }
+        }
+        self.operations = new_ops;
+        self
+    }
+    /// Combines two operations with overlapping targets
+    fn combine_ops(&self, op1: Operation, op2: Operation) -> Operation {
+        if op1.targets().len() > 2 || op2.targets().len() > 2 {
+            panic!("Cannot combine operations with more than 2 targets");
+        }
+        let diff: i32 = op1.targets.len() as i32 - op2.targets().len() as i32;
+
+        let targets = if diff < 0 {
+            op2.targets().clone()
+        } else {
+            op1.targets().clone()
+        };
+
+        let matrix = if diff < 0 {
+            // op1 is smaller, extend bottom
+            if op1.targets[0] == op2.targets()[0] {
+                op2.matrix()
+                    .dot(&linalg::kron(&Array2::eye(2), &op1.matrix()))
+            } else {
+                op2.matrix()
+                    .dot(&linalg::kron(&op1.matrix(), &Array2::eye(2)))
+            }
+        } else {
+            if op2.targets[0] == op1.targets[0] {
+                op1.matrix()
+                    .dot(&linalg::kron(&Array2::eye(2), &op2.matrix()))
+            } else {
+                op1.matrix()
+                    .dot(&linalg::kron(&op2.matrix(), &Array2::eye(2)))
+            }
+        };
+        Operation::new(matrix, targets).unwrap()
+    }
+    fn operations_overlap(&self, op1: Operation, op2: Operation) -> bool {
+        for target in op1.targets() {
+            if op2.targets().contains(&target) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Reduces the circuit by cancelling gates that cancel each other out.
+    pub fn reduce_circuit_cancel_gates(&mut self) -> &mut Self {
+        let mut i = 0;
+        let ops = &self.operations.clone();
+        let mut new_ops: Vec<Operation> = Vec::new();
+        while i < ops.len() {
+            if i == ops.len() - 1 {
+                new_ops.push(ops[i].clone());
+                break;
+            }
+            let j = i + 1;
+            let op = &ops[i];
+            let next_op = &ops[j];
+            //all real and symetric unitary gates cancel each other out
+            if op.matrix().iter().all(|x| x.im == 0.0) && *op == *next_op {
+                i += 1;
+            } else {
+                new_ops.push(op.clone());
+            }
+            i += 1;
+        }
+        self.operations = new_ops;
+        //If any gates were removed we need to check again
+        if self.operations.len() == ops.len() || self.operations.len() <= 1 {
+            return self;
+        }
+        self.reduce_circuit_cancel_gates();
+        self
+    }
+    /// Reduces the circuit by multiplying gates with the same targets.
+    pub fn reduce_circuit_gates_with_same_targets(&mut self) -> &mut Self {
+        let mut i = 0;
+        let ops = &self.operations;
+        let mut new_ops: Vec<Operation> = Vec::new();
+        let len = ops.len();
+        while i < len {
+            let op = &ops[i];
+
+            let mut matrix = op.matrix();
+            let targets = op.targets().clone();
+            let mut j = i + 1;
+
+            while j < self.get_operations().len() && self.get_operations()[j].targets() == targets {
+                let next_op = &self.get_operations()[j];
+                matrix = next_op.matrix().dot(&matrix);
+                j += 1;
+            }
+            new_ops.push(Operation::new(matrix, targets).expect("Could not create operation"));
+            i = j;
+        }
+        self.operations = new_ops;
+        self
+    }
+
+    /// Reduces the circuit by combining gates that are not overlapping, essentially putting them in the same time slot without altering the program.
+    pub fn reduce_non_overlapping_gates(&mut self) -> &mut Self {
+        let mut i = 0;
+        let ops = &self.operations;
+        let mut new_ops: Vec<Operation> = Vec::new();
+        let len = ops.len();
+        while i < len {
+            let op = &ops[i];
+            let mut matrix = op.matrix();
+            let mut targets: Vec<usize> = Vec::new();
+            targets.append(&mut op.targets().clone());
+            let mut j = i + 1;
+            while j < len && !targets.iter().any(|x| ops[j].targets().contains(x)) {
+                let next_op = &self.get_operations()[j];
+                matrix = linalg::kron(&next_op.matrix(), &matrix).to_owned();
+                targets.append(&mut next_op.targets().clone());
+
+                j += 1;
+            }
+            new_ops.push(
+                Operation::new(matrix.clone(), targets.to_vec())
+                    .expect("Could not create operation"),
+            );
+            i = j;
+        }
+        self.operations = new_ops;
+        self
+    }
+
+    pub fn clear_operations(&mut self) {
+        self.operations.clear();
+    }
+    /// Adds an operation to the circuit.
+    /// ***Panics*** if the operation is added after a measurement.
+    pub fn add_operation(&mut self, operation: Operation) {
+        if operation
+            .targets()
+            .iter()
+            .any(|x| self.measurement_targets.contains(x))
+        {
+            panic!("Cannot add operation after measurement");
+        }
+        if self.conditional_operations.len() > 0 {
+            panic!("Cannot add operation after conditional operation (yet...)");
+        }
+        self.operations.push(operation);
+    }
+
+    /// Adds a measurement to the circuit.
+    /// ***Panics*** if the measurement is added after another measurement.
+    pub fn add_measurement(&mut self, target: usize) {
+        if self.measurement_targets.contains(&target) {
+            panic!("Cannot add measurement after measurement");
+        }
+        self.measurement_targets.push(target);
+    }
+
+    /// Adds a conditional operation to the circuit.
+    ///
+    /// ***Panics*** if the operation is with a target that is not already measured.
+    pub fn add_conditional_operation(
+        &mut self,
+        operation: Operation,
+        condition: Vec<(usize, bool)>,
+    ) {
+        if operation
+            .targets()
+            .iter()
+            .any(|x| self.measurement_targets.contains(x))
+        {
+            panic!("Cannot add operation after measurement");
+        }
+        if !condition
+            .iter()
+            .all(|x: &(usize, bool)| self.measurement_targets.contains(&x.0))
+        {
+            panic!("Condition must be a measurement");
+        }
+        self.conditional_operations.push((operation, condition));
+    }
+}
+
 // TODO: Check if we can return references instead?
 impl QuantumOperation for Operation {
     fn matrix(&self) -> Array2<c64> {
@@ -76,7 +328,7 @@ impl QuantumOperation for Operation {
     }
 
     fn targets(&self) -> Vec<usize> {
-        self.targets.to_vec()
+        self.targets.clone()
     }
 
     fn arity(&self) -> usize {
@@ -286,7 +538,8 @@ pub fn cnz(controls: &[usize], target: usize) -> Operation {
 #[cfg(test)]
 mod tests {
     use super::{
-        cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumOperation,
+        cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumCircuit,
+        QuantumOperation,
     };
     use crate::math::c64;
     use ndarray::Array2;
@@ -342,5 +595,58 @@ mod tests {
 
     fn matrix_is_equal(a: Array2<c64>, b: Array2<c64>, tolerance: f64) -> bool {
         (a - b).iter().all(|e| e.norm() < tolerance)
+    }
+
+    #[test]
+    fn test_two_pair_of_same_gates_cancel_with_one_pair_in_middle() {
+        let mut circuit = QuantumCircuit::new();
+
+        circuit.add_operation(hadamard(0));
+
+        circuit.add_operation(cnot(0, 1));
+        circuit.add_operation(cnot(0, 1));
+
+        circuit.add_operation(hadamard(0));
+
+        circuit.reduce_circuit_cancel_gates();
+        assert!(circuit.get_operations().len() == 0);
+    }
+    #[test]
+    fn test_gates_with_same_arity_and_target_mul_together() {
+        let mut circuit = QuantumCircuit::new();
+
+        //Will multiply together
+        circuit.add_operation(hadamard(0));
+        circuit.add_operation(not(0));
+
+        circuit.reduce_circuit_gates_with_same_targets();
+
+        assert!(circuit.get_operations().len() == 1);
+    }
+
+    #[test]
+    fn test_hadamard_twice_cancels() {
+        let mut circuit = QuantumCircuit::new();
+
+        //Will cancel
+        circuit.add_operation(hadamard(0));
+        circuit.add_operation(hadamard(0));
+
+        circuit.reduce_circuit_cancel_gates();
+
+        assert!(circuit.get_operations().len() == 0);
+    }
+
+    #[test]
+    fn test_cnot_twice_cancels() {
+        let mut circuit = QuantumCircuit::new();
+
+        //Will cancel
+        circuit.add_operation(cnot(0, 1));
+        circuit.add_operation(cnot(0, 1));
+
+        circuit.reduce_circuit_cancel_gates();
+
+        assert!(circuit.get_operations().len() == 0);
     }
 }

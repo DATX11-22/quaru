@@ -1,7 +1,8 @@
 //! The `register` module provides quantum register functionality.
+
 use crate::{
     math::{self, c64},
-    operation::{Operation, QuantumOperation},
+    operation::{Operation, QuantumCircuit, QuantumOperation},
 };
 use ndarray::{array, linalg, Array1, Array2};
 use rand::prelude::*;
@@ -339,11 +340,54 @@ impl Register {
         Ok(res)
     }
 
+    /// Applies a circuit to the register and returns the results of the measurements
+    pub fn apply_circuit(&mut self, circuit: &mut QuantumCircuit) -> Vec<(usize, bool)> {
+        for op in circuit.get_operations() {
+            self.apply(
+                &Operation::new(op.matrix(), op.targets()).expect("Could not create operation"),
+            );
+        }
+        let mut measures: Vec<(usize, bool)> = Vec::new();
+        if circuit.get_measurement_targets().len() > 0 {
+            measures = self.measure_circuit(circuit);
+        }
+        for c_op in circuit.get_conditional_operations() {
+            let apply = c_op
+                .1
+                .iter()
+                .all(|(target, value)| measures.contains(&(*target, *value)));
+
+            if apply {
+                let op = &c_op.0;
+                self.apply(
+                    &Operation::new(op.matrix(), op.targets()).expect("Could not create operation"),
+                );
+            }
+        }
+        measures
+    }
+    /// Measures the qubits in the circuit and returns the results
+    pub fn measure_circuit(&mut self, circuit: &mut QuantumCircuit) -> Vec<(usize, bool)> {
+        let mut res = Vec::new();
+        for target in circuit.get_measurement_targets() {
+            res.push((*target, self.measure(*target)));
+        }
+        res
+    }
     /// Prints the probability in percent of falling into different states
     pub fn print_probabilities(&self) {
         let n = self.size;
         for (i, s) in self.state.iter().enumerate() {
             println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
+        }
+    }
+    /// Prints the probability in percent of falling into different states where the probability is not zero
+    pub fn print_nonzero_probabilities(&self) {
+        let n = self.size;
+        for (i, s) in self.state.iter().enumerate() {
+            if s.norm_sqr() > 0.0 {
+                println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
+            }
         }
     }
 

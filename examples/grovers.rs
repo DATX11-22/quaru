@@ -7,6 +7,7 @@ use quaru::{
     register::Register,
 };
 use std::{
+    collections::HashSet,
     f64::consts::PI,
     fmt::Display,
     time::{Duration, Instant},
@@ -18,6 +19,9 @@ struct Args {
     /// State to search for (decimal)
     #[arg(short, long)]
     target: Option<usize>,
+    // List of elements to search in
+    #[arg(short, long, value_delimiter = ',')]
+    list: Option<Vec<usize>>,
     /// Statistics flag
     #[arg(short, long)]
     statistics: bool,
@@ -26,15 +30,16 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    if !args.statistics && args.target.is_none() {
-        println!("Please provide a target integer with --target, or run in statistics mode with --statistics");
+    if !args.statistics && (args.target.is_none() || args.list.is_none()) {
+        println!("Please provide a target integer with --target and a list with --list, or run in statistics mode with --statistics");
     } else if !args.statistics {
         let target = args.target.unwrap();
+        let list = args.list.unwrap();
         let regsize = ((target + 1) as f64).log2().ceil() as usize;
         let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
         println!("Regsize: {regsize}");
 
-        let result = grovers_algorithm(target, regsize, iterations_exact);
+        let result = grovers_algorithm(target, &list, regsize, iterations_floor);
 
         println!("{result}");
     } else {
@@ -57,9 +62,14 @@ fn statistics() {
         for i in 0..100 {
             let regsize = ((i + 1) as f64).log2().ceil() as usize;
             let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
-            let result = grovers_algorithm(i, regsize, iteration_fn);
+            let list = (0..100).collect::<Vec<usize>>();
+            let result = grovers_algorithm(i, &list, regsize, iteration_fn);
 
-            if to_decimal(&result.result) == i {
+            if to_decimal(&result.result) > list.len() {
+                continue;
+            }
+
+            if list[to_decimal(&result.result)] == i {
                 correct += 1;
             }
         }
@@ -102,8 +112,9 @@ Time elapsed: {} ms",
 /// "correct" state while reducing the others in iterations.
 fn grovers_algorithm(
     winner: usize,
+    list: &Vec<usize>,
     regsize: usize,
-    iterations_fn: fn(usize) -> usize,
+    iterations_fn: fn(usize, usize) -> usize,
 ) -> GroversResult {
     let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
 
@@ -114,10 +125,13 @@ fn grovers_algorithm(
     reg.apply_all(&hadamard(0));
 
     // Generate oracle matrix
-    let oracle = oracle_operation(reg.size(), winner);
+    let oracle = oracle_operation(reg.size(), winner, &list);
+
+    // Calculate M, the number of occurences of winner in the list
+    let m: usize = list.iter().filter(|&n| *n == winner).count();
 
     // Calculate numbers of repetitions needed
-    let n: usize = iterations_fn(reg.size());
+    let n: usize = iterations_fn(reg.size(), m);
     for _ in 0..n {
         // U_f (oracle function) reflects the "winner" state
         reg.apply(&oracle);
@@ -152,14 +166,26 @@ fn diffuser(reg: &mut Register) {
 /// The oracle function U_f reflects the "winner" state
 ///
 /// ***Panics*** if the Operation fails to be created
-pub fn oracle_operation(regsize: usize, winner: usize) -> Operation {
+pub fn oracle_operation(regsize: usize, winner: usize, list: &Vec<usize>) -> Operation {
     let n: usize = 2_usize.pow(regsize as u32);
     let mut matrix: Array2<f64> = Array2::<f64>::zeros((n, n));
-    for i in 0..n {
-        matrix.row_mut(i)[i] = if i == winner { -1.0 } else { 1.0 };
+
+    // Find the indexes of the winner state(s) in list
+    let mut winner_indexes: HashSet<usize> = HashSet::new();
+    for (i, item) in list.iter().enumerate() {
+        if *item == winner {
+            winner_indexes.insert(i);
+        }
     }
 
-    
+    for i in 0..n {
+        matrix.row_mut(i)[i] = if winner_indexes.contains(&i) {
+            -1.0
+        } else {
+            1.0
+        };
+    }
+
     Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
         .expect("Could not create oracle operation")
 }
@@ -175,7 +201,6 @@ pub fn diffusion_operation(regsize: usize) -> Operation {
         matrix.row_mut(i)[i] = -1.0;
     }
 
-    
     Operation::new(real_arr_to_complex(matrix), (0..regsize).collect())
         .expect("Could not create diffuser operation")
 }
@@ -183,32 +208,32 @@ pub fn diffusion_operation(regsize: usize) -> Operation {
 /// Calculates the optimal number of iterations needed for U_sU_f
 /// to get good amplitudes for the target states.
 /// Floors the result.
-fn iterations_floor(regsize: usize) -> usize {
-    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt()).floor() as usize
+fn iterations_floor(regsize: usize, m: usize) -> usize {
+    (PI / 4.0 * (2.0_f64.pow(regsize as f64) / m as f64).sqrt()).floor() as usize
 }
 
 /// Calculates the optimal number of iterations needed for U_sU_f
 /// to get good amplitudes for the target states.
 /// Ceils the result.
-fn iterations_ceil(regsize: usize) -> usize {
-    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt()).ceil() as usize
+fn iterations_ceil(regsize: usize, m: usize) -> usize {
+    (PI / 4.0 * (2.0_f64.pow(regsize as f64) / m as f64).sqrt()).ceil() as usize
 }
 
 /// Calculates the optimal number of iterations needed for U_sU_f
 /// to get good amplitudes for the target states.
 /// Uses Microsofts formula.
 /// https://learn.microsoft.com/en-us/azure/quantum/concepts-grovers
-fn iterations_ms(regsize: usize) -> usize {
-    (PI / 4.0 * (2.0_f64.pow(regsize as f64)).sqrt() - 0.5_f64).floor() as usize
+fn iterations_ms(regsize: usize, m: usize) -> usize {
+    (PI / 4.0 * (2.0_f64.pow(regsize as f64) / m as f64).sqrt() - 0.5_f64).floor() as usize
 }
 
 /// Calculates the optimal number of iterations needed for U_sU_f
 /// to get good amplitudes for the target states.
 /// Uses Nielsen and Chuangs exact formula.
-fn iterations_exact(regsize: usize) -> usize {
+fn iterations_exact(regsize: usize, m: usize) -> usize {
     let theta = theta(regsize);
     let n = 2.0_f64.pow(regsize as f64);
-    (f64::acos((1.0 / n).sqrt()) / theta).round() as usize
+    (f64::acos((m as f64 / n).sqrt()) / theta).round() as usize
 }
 
 /// Calculates the angle theta that represents half a rotation
@@ -239,7 +264,7 @@ mod tests {
             let regsize = ((target + 1) as f64).log2().ceil() as usize;
             let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
             let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
-            let oracle = super::oracle_operation(reg.size(), target);
+            let oracle = super::oracle_operation(reg.size(), target, &(0..20).collect());
             reg.apply_all(&hadamard(0));
             reg.apply(&oracle);
             // Check that the state is flipped
@@ -258,7 +283,7 @@ mod tests {
             let regsize = ((target + 1) as f64).log2().ceil() as usize;
             let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
             let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
-            let oracle = super::oracle_operation(reg.size(), target);
+            let oracle = super::oracle_operation(reg.size(), target, &(0..20).collect());
             reg.apply_all(&hadamard(0));
             reg.apply(&oracle);
             crate::diffuser(&mut reg);

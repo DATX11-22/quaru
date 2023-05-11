@@ -41,7 +41,10 @@ fn main() {
 
         let result = grovers_algorithm(target, &list, regsize, iterations_floor);
 
-        println!("{result}");
+        match result {
+            None => println!("No result found"),
+            Some(result) => println!("{result}"),
+        }
     } else {
         statistics();
     }
@@ -64,13 +67,18 @@ fn statistics() {
             let regsize = if regsize < 2 { 2 } else { regsize }; // Minimum register size is 2.
             let list = (0..100).collect::<Vec<usize>>();
             let result = grovers_algorithm(i, &list, regsize, iteration_fn);
+            
+            match result {
+                None => continue,
+                Some(result) => {
+                    if to_decimal(&result.result) > list.len() {
+                        continue;
+                    }
 
-            if to_decimal(&result.result) > list.len() {
-                continue;
-            }
-
-            if list[to_decimal(&result.result)] == i {
-                correct += 1;
+                    if list[to_decimal(&result.result)] == i {
+                        correct += 1;
+                    }
+                }
             }
         }
 
@@ -115,7 +123,7 @@ fn grovers_algorithm(
     list: &Vec<usize>,
     regsize: usize,
     iterations_fn: fn(usize, usize) -> usize,
-) -> GroversResult {
+) -> Option<GroversResult> {
     let mut reg = Register::new(&(0..regsize).map(|_| false).collect::<Vec<bool>>());
 
     // Start benchmark
@@ -129,6 +137,10 @@ fn grovers_algorithm(
 
     // Calculate M, the number of occurences of winner in the list
     let m: usize = list.iter().filter(|&n| *n == winner).count();
+    // Terminate if m == 0
+    if m == 0 {
+        return None;
+    }
 
     // Calculate numbers of repetitions needed
     let n: usize = iterations_fn(reg.size(), m);
@@ -146,12 +158,12 @@ fn grovers_algorithm(
     // Stop benchmark
     let time_elapsed = start.elapsed();
 
-    GroversResult {
+    Some(GroversResult {
         target: winner,
         result: measured_state,
         iterations: n,
         time: time_elapsed,
-    }
+    })
 }
 
 // The diffuser function U_s reflects about the average amplitude

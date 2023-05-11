@@ -1,4 +1,7 @@
-use crate::operation::{self, Operation, QuantumOperation};
+use crate::{
+    openqasm,
+    operation::{self, Operation, QuantumOperation},
+};
 
 /// Displays a list of operations as a circuit diagram
 /// Each horizontal line represents a qubit
@@ -85,6 +88,18 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
                     // Write Pauli Z symbol
                     circuit[target * 2].push('Z');
                 }
+                OperationIdentifier::U => {
+                    // Write OpenQASM U gate symbol
+                    circuit[target * 2].push('U');
+                }
+                OperationIdentifier::Measure => {
+                    // Write OpenQASM measure symbol
+                    circuit[target * 2].push('/');
+                }
+                OperationIdentifier::Reset => {
+                    // Write OpenQASM reset symbol
+                    circuit[target * 2].push('[');
+                }
                 _ => {}
             }
             for (i, q) in circuit.iter_mut().enumerate() {
@@ -103,7 +118,7 @@ pub fn display_circuit(operations: Vec<IdentfiableOperation>, size: usize) {
 }
 
 /// An operation with an identifier.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IdentfiableOperation {
     identifier: OperationIdentifier,
     operation: Operation,
@@ -146,6 +161,15 @@ impl IdentfiableOperation {
         Self::new(OperationIdentifier::PauliZ, operation::pauli_z(target))
     }
 
+    /// Given a target returns an identifiable OpenQASM 2.0 U operation.
+    pub fn u(theta: f32, phi: f32, lambda: f32, qubit: usize) -> IdentfiableOperation {
+        Self::new(
+            OperationIdentifier::U,
+            openqasm::u(theta as f64, phi as f64, lambda as f64, qubit)
+                .expect("Could not construct U gate"),
+        )
+    }
+
     /// Given a control and a target returns an identifiable CNOT operation.
     pub fn cnot(control: usize, target: usize) -> IdentfiableOperation {
         Self::new(OperationIdentifier::CNot, operation::cnot(control, target))
@@ -159,6 +183,14 @@ impl IdentfiableOperation {
         )
     }
 
+    pub fn measure(qubit: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Measure, operation::identity(qubit))
+    }
+
+    pub fn reset(qubit: usize) -> IdentfiableOperation {
+        Self::new(OperationIdentifier::Reset, operation::identity(qubit))
+    }
+
     /// Returns the operation.
     pub fn operation(&self) -> Operation {
         self.operation.clone()
@@ -166,7 +198,7 @@ impl IdentfiableOperation {
 }
 
 /// Identifier for available operations in the CLI.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum OperationIdentifier {
     /// The Identity identifier.
     Identity,
@@ -180,10 +212,16 @@ pub enum OperationIdentifier {
     PauliY,
     /// The Pauli Z identifier.
     PauliZ,
+    /// The OpenQASM U gate identifier.
+    U,
     /// The CNOT identifier.
     CNot,
     /// The Swap identifier.
     Swap,
+    /// The measure identifier.
+    Measure,
+    /// The reset identifier.
+    Reset,
 }
 
 #[cfg(test)]

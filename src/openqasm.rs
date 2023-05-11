@@ -1,4 +1,4 @@
-//! Code related to running openqasm programs on the simulator.
+//! Code related to running OpenQASM programs on the simulator.
 
 use crate::{
     math::c64,
@@ -6,22 +6,24 @@ use crate::{
     register::Register,
 };
 use ndarray::array;
-use openqasm_parser::openqasm::{self, BasicOp, OpenQASMError as OpenQASMParseError};
+use openqasm_parser::openqasm::{self, BasicOp, OpenQASMError as OpenQASMParseError, semantic_analysis::OpenQASMProgram};
 use std::{collections::HashMap, path::Path};
 
-/// A tuple containing some quantum registers and classical registers
-///
-/// Used as a return type when running an openqasm program since openqasm programs can
-/// contain multiple quantum and classical registers.
-pub struct Registers {
+/// The result of running an OpenQASM program
+pub struct OpenQASMResult {
+    /// `qregs` and `cregs` store the final results of the quantum and classical registers after running
+    /// the OpenQASM program.
     pub qregs: HashMap<String, Register>,
     pub cregs: HashMap<String, Vec<bool>>,
+
+    /// Contains information about the OpenQASM program
+    pub program: OpenQASMProgram,
 }
 
-/// The different types of errors that can occur when running an openqasm program.
+/// The different types of errors that can occur when running an OpenQASM program.
 #[derive(Debug)]
 pub enum OpenQASMError {
-    /// Error when parsing the openqasm file. The problem can be with reading the file,
+    /// Error when parsing the OpenQASM file. The problem can be with reading the file,
     /// parsing the tokens, syntax or semantics.
     OpenQASMParseError(OpenQASMParseError),
 
@@ -29,17 +31,17 @@ pub enum OpenQASMError {
     OpenQASMRunError(String),
 }
 
-/// Reads a file containing openqasm 2.0 code and runs it on the simulator.
+/// Reads a file containing OpenQASM 2.0 code and runs it on the simulator.
 ///
-/// If successful: Returns the quanum and classical [Registers] defined in the openqasm file in the state
+/// If successful: Returns the quanum and classical [Registers] defined in the OpenQASM file in the state
 /// they are in after running the program.
 ///
 /// If unsuccessful: Returns an [OpenQASMError].
 ///
 /// The way the simulator is implemented it is not possible to apply a CX gate to qubits in
-/// different registers. If the openqasm program tries to do this an error is returned.
+/// different registers. If the OpenQASM program tries to do this an error is returned.
 ///
-/// See <https://github.com/openqasm/openqasm/tree/OpenQASM2.x> for more information on openqasm 2.0.
+/// See <https://github.com/openqasm/openqasm/tree/OpenQASM2.x> for more information on OpenQASM 2.0.
 ///
 /// # Examples
 /// ```
@@ -47,13 +49,13 @@ pub enum OpenQASMError {
 /// use std::path::Path;
 /// let registers = openqasm::run_openqasm(Path::new("filepath.qasm"));
 /// ```
-pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
+pub fn run_openqasm(openqasm_file: &Path) -> Result<OpenQASMResult, OpenQASMError> {
     let program =
         openqasm::parse_openqasm(openqasm_file).map_err(OpenQASMError::OpenQASMParseError)?;
 
     // Initializes the registers defined in the openqasm file. All registers are initialized
     // to 0.
-    let mut registers = Registers {
+    let mut result = OpenQASMResult {
         qregs: program
             .qregs
             .iter()
@@ -64,15 +66,16 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
             .iter()
             .map(|(name, &size)| (name.clone(), vec![false; size]))
             .collect(),
+        program,
     };
 
     // Applies the operations defined in the openqasm file to the registers.
-    for (condition, op) in program.get_basic_operations() {
+    for (condition, op) in result.program.get_basic_operations() {
         // If there is a condition and it is not satisfied, don't apply the operation.
         if let Some(condition) = condition {
             // Assuming the openqasm parser is correctly implemented this should always
             // return a register and never panic.
-            let creg = registers
+            let creg = result
                 .cregs
                 .get(&condition.0)
                 .expect("Register does not exist?");
@@ -87,7 +90,7 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
         // correct. If the register didn't exist it should already have returned a SemanticError.
         match op {
             BasicOp::U(p1, p2, p3, q) => {
-                let qreg = registers
+                let qreg = result
                     .qregs
                     .get_mut(&q.0)
                     .expect("Register does not exist?");
@@ -100,18 +103,18 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
                     return Err(OpenQASMError::OpenQASMRunError("The simulator currently does not support applying CX on qubits in two different registers".to_string()));
                 }
 
-                let qreg = registers
+                let qreg = result
                     .qregs
                     .get_mut(&q1.0)
                     .expect("Register does not exist?");
                 qreg.apply(&operation::cnot(q1.1, q2.1));
             }
             BasicOp::Measure(q, c) => {
-                let qreg = registers
+                let qreg = result
                     .qregs
                     .get_mut(&q.0)
                     .expect("Register does not exist?");
-                let creg = registers
+                let creg = result
                     .cregs
                     .get_mut(&c.0)
                     .expect("Register does not exist?");
@@ -119,14 +122,14 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
                 creg[c.1] = qreg.measure(q.1);
             }
             BasicOp::ResetQ(q) => {
-                let qreg = registers
+                let qreg = result
                     .qregs
                     .get_mut(&q.0)
                     .expect("Register does not exist?");
                 *qreg = Register::new(&vec![false; qreg.size()]);
             }
             BasicOp::ResetC(c) => {
-                let creg = registers
+                let creg = result
                     .cregs
                     .get_mut(&c.0)
                     .expect("Register does not exist?");
@@ -135,11 +138,11 @@ pub fn run_openqasm(openqasm_file: &Path) -> Result<Registers, OpenQASMError> {
         };
     }
 
-    Ok(registers)
+    Ok(result)
 }
 
 /// Returns a universal operation for the given angles on the `target` qubit.
-fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Option<Operation> {
+pub fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Option<Operation> {
     let theta = c64::from(theta);
     let phi = c64::from(phi);
     let lambda = c64::from(lambda);
@@ -163,7 +166,7 @@ fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Option<Operation> {
 ///
 /// The register is represented by a vector of booleans. This function converts
 /// the classical register from this representation into its binary representation
-/// where `creg[0]` is the least significant bit (in occordance with the openqasm 2.0 spec).
+/// where `creg[0]` is the least significant bit (in occordance with the OpenQASM 2.0 spec).
 ///
 /// # Panics
 /// Because the return type is a u32 this function panics when given a register larger than

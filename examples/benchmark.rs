@@ -10,32 +10,33 @@ use std::time::Instant;
 
 include!("shors_functions.rs");
 
-fn is_prime(n: u32) -> bool {
+fn is_shorable(n: u32) -> bool {
+    // Check if prime
+    let mut prime = true;
     for i in 2..n {
         if n % i == 0 {
+            prime = false;
+        }
+    }
+    if prime {
+        return false;
+    }
+
+    // Check if even
+    if n % 2 == 0 {
+        return false;
+    }
+
+    // Check if power
+    for k in 2..n.ilog2() + 1 {
+        let c = ((n as f64).powf((k as f64).recip()) + 1e-9) as u32;
+        if c.pow(k) == n {
+            // c^k = N, so c is a factor
             return false;
         }
     }
-    true
-}
 
-fn bench_shors(){
-    let attempts = 100;
-    for n in 4..=3000 {
-        if is_prime(n) {
-            continue;
-        }
-        let mut sum_time = 0.0;
-        for _ in 0..attempts {
-            let start = Instant::now();
-            shors(n, true, false);
-            let time = start.elapsed().as_secs_f64();
-            sum_time += time
-        }
-        
-        let avg_time = sum_time/attempts as f64;
-        println!("{} {}", n, avg_time);
-    }
+    true
 }
 
 enum Accumulator {
@@ -76,10 +77,10 @@ fn main() {
         start.elapsed().as_secs_f64()
     }
 
-    let xs: Vec<i32> = (2..=100).filter(|&x| !is_prime(x as u32)).collect();
+    let xs: Vec<i32> = (2..=100).filter(|&x| is_shorable(x as u32)).collect();
     let ys = benchmark(bench_shors, xs.clone(), 100, Accumulator::Avg);
     let formula = |p: Vec<f64>, x: i32| (p[0]*p[1].pow((x as f64).log2()));
-    let mut p = vec![1.0, 3.0];
+    let mut p = vec![1e-6, 3.0];
 
     /*
     let xs: Vec<i32> = (1..=14).collect();

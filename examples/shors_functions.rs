@@ -186,11 +186,10 @@ fn find_period_circuit(number: u32, a: u32) -> u32 {
 
     let mut reg = Register::new(&vec![false; 3 * n]);
 
-    println!("REDUCE CIRCUIT");
     circ.reduce_circuit_cancel_gates();
     circ.reduce_circuit_gates_with_same_targets();
     circ.reduce_non_overlapping_gates();
-    println!("APPLY CIRCUIT");
+    
     let measures = reg.apply_circuit(&mut circ);
     for (i, m) in measures.iter() {
         let v = if *m { 1 } else { 0 };

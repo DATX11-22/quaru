@@ -25,16 +25,14 @@
 //!
 //! let identity: Operation = identity(0);
 //! ```
-use crate::math::{c64, int_to_state, real_arr_to_complex, ndarray_to_arrayfire, arrayfire_to_ndarray};
+use crate::math::{c64, int_to_state, real_arr_to_complex};
 use ndarray::linalg;
 use ndarray::{array, Array2};
-use num::Zero;
 use std::{f64::consts, vec};
-extern crate arrayfire as af;
 
 // Naming?
 pub trait QuantumOperation {
-    fn matrix(&self) -> af::Array<c64>;
+    fn matrix(&self) -> Array2<c64>;
     fn targets(&self) -> Vec<usize>;
     fn arity(&self) -> usize;
 }
@@ -49,7 +47,7 @@ pub trait QuantumOperation {
 /// with length equal to the number of operands.
 #[derive(Clone, Debug)]
 pub struct Operation {
-    matrix: af::Array<c64>,
+    matrix: Array2<c64>,
     targets: Vec<usize>,
 }
 
@@ -59,11 +57,11 @@ impl Operation {
     /// Returns an operation if `matrix` is square with sides equal to number of `targets`.
     ///
     /// Otherwise, returns `None`.
-    pub fn new(matrix: af::Array<c64>, targets: Vec<usize>) -> Option<Operation> {
-        let shape = matrix.dims();
+    pub fn new(matrix: Array2<c64>, targets: Vec<usize>) -> Option<Operation> {
+        let shape = matrix.shape();
         let len = targets.len();
 
-        if shape[0] as usize != 2_usize.pow(len as u32) || shape[1] as usize != 2_usize.pow(len as u32) {
+        if shape[0] != 2_usize.pow(len as u32) || shape[1] != 2_usize.pow(len as u32) {
             return None;
         }
 
@@ -73,7 +71,7 @@ impl Operation {
 
 // TODO: Check if we can return references instead?
 impl QuantumOperation for Operation {
-    fn matrix(&self) -> af::Array<c64> {
+    fn matrix(&self) -> Array2<c64> {
         self.matrix.clone()
     }
 
@@ -106,15 +104,13 @@ pub fn hadamard(target: usize) -> Operation {
 
 /// Returns a hadamard transformation for the given qubit `targets`.
 pub fn hadamard_transform(targets: Vec<usize>) -> Operation {
-    let mut matrix = array![[c64::new(1.0, 0.0)]];
+    let mut matrix = hadamard(targets[0]).matrix();
     let len = targets.len();
 
-    // TODO: faster to construct on GPU?
-    for t in targets.iter().take(len) {
-        matrix = linalg::kron(&arrayfire_to_ndarray(&hadamard(*t).matrix()), &matrix);
+    for t in targets.iter().take(len).skip(1) {
+        matrix = linalg::kron(&hadamard(*t).matrix(), &matrix);
     }
-    let af_matrix = ndarray_to_arrayfire(&matrix);
-    Operation { matrix: af_matrix, targets }
+    Operation { matrix, targets }
 }
 
 /// Returns the controlled NOT operation based on the given `control` qubit and
@@ -140,7 +136,6 @@ pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Opera
     let len: usize = 1 << t_len;
     let mut matrix: Array2<c64> = Array2::zeros((len, len));
     // Loop through the columns
-    // TODO: faster to construct on GPU?
     for c in 0..len {
         let val = f(c);
         let res_state = int_to_state(val, len);
@@ -150,16 +145,13 @@ pub fn to_quantum_gate(f: &dyn Fn(usize) -> usize, targets: Vec<usize>) -> Opera
             matrix[(r, c)] = res_state[(r, 0)];
         }
     }
-    let af_matrix = ndarray_to_arrayfire(&matrix);
-    Operation { matrix: af_matrix, targets }
+    Operation { matrix, targets }
 }
 
 /// Create a controlled version of an operation.
 /// Doubles the width and height of the matrix, put the original matrix
 /// in the bottom right corner and add an identity matrix in the top left corner.
 pub fn to_controlled(op: Operation, control: usize) -> Operation {
-    // TODO: Classic optization?
-    /*
     let old_sz = 1 << op.arity();
     let mut matrix = Array2::zeros((2 * old_sz, 2 * old_sz));
     for i in 0..old_sz {
@@ -170,25 +162,6 @@ pub fn to_controlled(op: Operation, control: usize) -> Operation {
             matrix[(i + old_sz, j + old_sz)] = op.matrix[(i, j)];
         }
     }
-    let mut targets = op.targets();
-
-    // One more target bit: the control.
-    targets.push(control);
-    Operation { matrix, targets }
-    */
-
-    let old_sz = 1 << op.arity();
-    let mut matrix = af::constant!(c64::zero(); 2 * old_sz, 2 * old_sz);
-    let identity = af::identity(af::dim4!(old_sz, old_sz));
-
-    let row_seq = af::Seq::new(0, old_sz as u32 - 1, 1);
-    let col_seq = af::Seq::new(0, old_sz as u32 - 1, 1);
-    af::assign_seq(&mut matrix, &[row_seq, col_seq], &identity);
-
-    let row_seq = af::Seq::new(old_sz as u32, 2 * old_sz as u32 - 1, 1);
-    let col_seq = af::Seq::new(old_sz as u32, 2 * old_sz as u32 - 1, 1);
-    af::assign_seq(&mut matrix, &[row_seq, col_seq], &op.matrix());
-
     let mut targets = op.targets();
 
     // One more target bit: the control.
@@ -217,10 +190,10 @@ pub fn swap(target_1: usize, target_2: usize) -> Operation {
 /// phase of the quantum state.
 pub fn phase(target: usize) -> Operation {
     Operation {
-        matrix: af::Array::new(
-            &[c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 1.0)],
-            af::dim4!(2, 2)
-        ),
+        matrix: array![
+            [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 1.0)]
+        ],
         targets: vec![target],
     }
 }
@@ -242,10 +215,10 @@ pub fn not(target: usize) -> Operation {
 /// Maps the basis states |0⟩ -> i|1⟩ and |1⟩ -> -i|0⟩.
 pub fn pauli_y(target: usize) -> Operation {
     Operation {
-        matrix: af::Array::new(
-            &[c64::new(0.0, 0.0), c64::new(0.0, -1.0), c64::new(0.0, 1.0), c64::new(0.0, 0.0)],
-            af::dim4!(2, 2)
-        ),
+        matrix: array![
+            [c64::new(0.0, 0.0), c64::new(0.0, -1.0)],
+            [c64::new(0.0, 1.0), c64::new(0.0, 0.0)]
+        ],
         targets: vec![target],
     }
 }
@@ -315,10 +288,8 @@ mod tests {
     use super::{
         cnot, cnx, hadamard, identity, not, pauli_y, pauli_z, phase, swap, QuantumOperation,
     };
-    use crate::math::{c64, arrayfire_to_ndarray};
-    use af::MatProp;
+    use crate::math::c64;
     use ndarray::Array2;
-    extern crate arrayfire as af;
 
     fn all_ops() -> Vec<Box<dyn QuantumOperation>> {
         vec![
@@ -341,8 +312,8 @@ mod tests {
     #[test]
     fn sz_matches() {
         for op in all_ops() {
-            assert_eq!(op.matrix().dims()[0], op.matrix().dims()[1]);
-            assert_eq!(op.matrix().dims()[0], 1 << op.arity())
+            assert_eq!(op.matrix().dim().0, op.matrix().dim().1);
+            assert_eq!(op.matrix().dim().0, 1 << op.arity())
         }
     }
 
@@ -350,10 +321,10 @@ mod tests {
     fn unitary() {
         // This also guarantees preservation of total probability
         for op in all_ops() {
-            let conj_transpose = af::transpose(&op.matrix(), true);
+            let conj_transpose = op.matrix().t().map(|e| e.conj());
             assert!(matrix_is_equal(
-                arrayfire_to_ndarray(&af::matmul(&op.matrix(), &conj_transpose, MatProp::NONE, MatProp::NONE)),
-                Array2::eye(op.matrix().dims()[0] as usize),
+                op.matrix().dot(&conj_transpose),
+                Array2::eye(op.matrix().dim().0),
                 1e-8
             ))
         }
@@ -363,8 +334,8 @@ mod tests {
     fn toffoli2_equals_cnot() {
         let toffoli_generated_cnot = cnx(&[0], 1);
         assert!(matrix_is_equal(
-            arrayfire_to_ndarray(&toffoli_generated_cnot.matrix()),
-            arrayfire_to_ndarray(&cnot(0, 1).matrix()),
+            toffoli_generated_cnot.matrix(),
+            cnot(0, 1).matrix(),
             1e-8
         ));
     }

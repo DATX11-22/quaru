@@ -1,7 +1,7 @@
 //! Code related to running openqasm programs on the simulator.
 
 use crate::{
-    math::{c64, ndarray_to_arrayfire},
+    math::c64,
     operation::{self, Operation},
     register::Register,
 };
@@ -145,7 +145,7 @@ fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Option<Operation> {
     let lambda = c64::from(lambda);
     let i = c64::i();
     Operation::new(
-        ndarray_to_arrayfire(&array![
+        array![
             [
                 (-i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos(),
                 -(-i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin()
@@ -154,7 +154,7 @@ fn u(theta: f64, phi: f64, lambda: f64, target: usize) -> Option<Operation> {
                 (i * (phi - lambda) / 2.0).exp() * (theta / 2.0).sin(),
                 (i * (phi + lambda) / 2.0).exp() * (theta / 2.0).cos()
             ],
-        ]),
+        ],
         vec![target],
     )
 }

@@ -3,7 +3,7 @@ use colored::Colorize;
 use log::debug;
 use ndarray::Array2;
 use num::traits::Pow;
-use quaru::math::{c64, limit_denominator, modpow, ComplexFloat, ndarray_to_arrayfire};
+use quaru::math::{c64, limit_denominator, modpow, ComplexFloat};
 use quaru::operation::Operation;
 use quaru::{operation, register::Register};
 use rand::Rng;
@@ -213,14 +213,12 @@ pub fn qft(n: usize) -> Option<Operation> {
             matrix[(i as usize, j as usize)] = w.powi(i * j) * (1.0 / (m as f64).sqrt());
         }
     }
-    // TODO: Probably not faster to construct on GPU?
-    let af_matrix = ndarray_to_arrayfire(&matrix);
-    Operation::new(af_matrix, (0..n).collect())
+    Operation::new(matrix, (0..n).collect())
 }
 
 #[cfg(test)]
 mod tests {
-    use quaru::math::{equal_qubits, modpow, c64, ndarray_to_arrayfire};
+    use quaru::math::{equal_qubits, modpow, c64};
     use quaru::register::Register;
     use quaru::operation::Operation;
     use ndarray::{Array2, array, linalg};
@@ -319,7 +317,7 @@ mod tests {
             matrix = linalg::kron(&matrix, &em);
         }
 
-        Operation::new(ndarray_to_arrayfire(&matrix), targets).expect("Failed to create add operation")
+        Operation::new(matrix, targets).expect("Failed to create add operation")
     }
 
     #[test]

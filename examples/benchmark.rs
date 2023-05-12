@@ -1,8 +1,14 @@
+use log::debug;
+use ndarray::{array, Array2};
+use num::traits::Pow;
+use quaru::math::{c64, limit_denominator, modpow, ComplexFloat};
+use quaru::operation::{Operation, QuantumCircuit};
 use quaru::{operation, register::Register};
-use std::time::Instant;
 use rand::Rng;
+use std::f64::consts::{self, PI};
+use std::time::Instant;
 
-include!("shors.rs");
+include!("shors_functions.rs");
 
 fn is_prime(n: u32) -> bool {
     for i in 2..n {
@@ -22,7 +28,7 @@ fn bench_shors(){
         let mut sum_time = 0.0;
         for _ in 0..attempts {
             let start = Instant::now();
-            shors(n, true);
+            shors(n, true, false);
             let time = start.elapsed().as_secs_f64();
             sum_time += time
         }
@@ -59,7 +65,7 @@ fn main() {
 
     fn bench_shors(n: i32) -> f64 {
         let start = Instant::now();
-        shors(n as u32, true);
+        shors(n as u32, true, false);
         start.elapsed().as_secs_f64()
     }
 
@@ -70,27 +76,33 @@ fn main() {
         start.elapsed().as_secs_f64()
     }
 
-    let xs: Vec<i32> = (1..=14).collect();
-    //let ys = benchmark(bench_shors, xs, 100, Accumulator::Avg);
-    let ys = benchmark(bench_apply_all, xs, 100, Accumulator::Min);
+    let xs: Vec<i32> = (2..=100).filter(|&x| !is_prime(x as u32)).collect();
+    let ys = benchmark(bench_shors, xs.clone(), 100, Accumulator::Avg);
+    let formula = |p: Vec<f64>, x: i32| (p[0]*p[1].pow((x as f64).log2()));
+    let mut p = vec![1.0, 3.0];
 
+    /*
+    let xs: Vec<i32> = (1..=14).collect();
+    let ys = benchmark(bench_apply_all, xs.clone(), 100, Accumulator::Min);
+    let formula = |p: Vec<f64>, x: i32| (p[0]*p[1].powi(x) + p[2]);
+    let mut p = vec![1e-9_f64, 4.0, 1e-7];
+    */
 
     println!("\nFinding regression curve");
 
     // Finding regression curve on the form y = ab^x + c, where a,b,c are parameters.
-    let mut p = [1e-9_f64, 4.0, 1e-7]; // p = [a,b,c]
     let mut best_r2 = f64::MAX;
     let mut it: i64 = 0;
     loop {
         // Make a random change to the parameters.
-        let idx = rng.gen_range(0..3);
+        let idx = rng.gen_range(0..p.len());
         let f = rng.gen_range(0.99..1.01);
         p[idx] *= f;
         
         // Calculate sum of squared errors after the change
         let mut r2 = 0.0;
         for i in 0..xs.len() {
-            r2 += (ys[i].log2() - (p[0]*p[1].powi(xs[i]) + p[2]).log2()).powf(2.0);
+            r2 += (ys[i].log2() - formula(p.clone(), xs[i]).log2()).powf(2.0);
         }
         
         if r2 < best_r2 {
@@ -103,8 +115,9 @@ fn main() {
         }
         
         it += 1;
-        if it%20000000 == 0 {
-            println!("\n{}*{}^x+{}\nError: {}", p[0], p[1], p[2], best_r2);
+        if it%5000000 == 0 {
+            //println!("\n{}*{}^x+{}\nError: {}", p[0], p[1], p[2], best_r2);
+            println!("\n{:?}\nError: {}", p, best_r2);
         }
     }
 }

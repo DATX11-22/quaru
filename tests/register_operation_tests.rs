@@ -107,7 +107,7 @@ proptest!(
     }
 
     #[test]
-    fn any_entangled_bit_measure_same(i in 0..6 as usize,mut j in 0..6 as usize){
+    fn any_entangled_bit_measure_same(i in 0..6_usize,mut j in 0..6_usize){
         let mut reg = Register::new(&[false; 6]);
         if i == j {
             j = (j + 1) % 6;

@@ -1,13 +1,13 @@
 use clap::Parser;
 use colored::Colorize;
 use log::debug;
-use ndarray::Array2;
+use ndarray::{array, Array2};
 use num::traits::Pow;
 use quaru::math::{c64, limit_denominator, modpow, ComplexFloat};
-use quaru::operation::Operation;
+use quaru::operation::{Operation, QuantumCircuit};
 use quaru::{operation, register::Register};
 use rand::Rng;
-use std::f64::consts;
+use std::f64::consts::{self, PI};
 use stopwatch::Stopwatch;
 
 #[derive(Parser, Debug)]
@@ -20,6 +20,13 @@ struct Args {
     /// Number of times to run the algorithm
     #[arg(long, default_value_t = 1)]
     n_times: u32,
+
+    #[arg(long, default_value_t = false)]
+    use_circuit: bool,
+
+    /// Run fast or slow period-finder?
+    #[arg(short, long, default_value_t = false)]
+    fast: bool,
 }
 
 fn main() {
@@ -28,14 +35,16 @@ fn main() {
     let args = Args::parse();
     let number = args.number;
     let n_times = args.n_times;
+    let use_circuit = args.use_circuit;
+    let fast = args.fast;
 
     let mut runtimes = Vec::<i64>::new();
     for _ in 0..n_times {
         let sw = Stopwatch::start_new();
-        println!("Running for N = {}", number);
+        println!("Running for N = {number}");
 
         // Find a factor with shor's algorithm
-        let d1 = shors(number);
+        let d1 = shors(number, fast, use_circuit);
         let d2 = number / d1;
         println!(
             "The factors of {} are {} and {}",
@@ -44,11 +53,17 @@ fn main() {
             d2.to_string().yellow()
         );
         let t = sw.elapsed_ms();
-        runtimes.push(t);
+        if t > 1 {
+            runtimes.push(t);
+        }
         println!("Time elapsed: {} ms", t.to_string().blue());
         println!("------------------------------------")
     }
 
+    if runtimes.len() == 0 {
+        println!("No runs took more than 1 ms");
+        return;
+    }
     let avg = runtimes.iter().sum::<i64>() / runtimes.len() as i64;
     let min = runtimes.iter().min().unwrap();
     println!(
@@ -71,14 +86,14 @@ fn u_gate(targets: Vec<usize>, modulus: u32, a: u32, i: usize) -> operation::Ope
     // Create the function for the controlled u gate
     let func = |x: usize| -> usize { (x * a_pow_mod) % modulus as usize };
     // Create the gate
-    let u_gate = operation::to_quantum_gate(&func, targets.clone());
+    
 
-    u_gate
+    operation::to_quantum_gate(&func, targets)
 }
 
 /// Shor's algorithm
 /// This algorithm finds a factor of the number N.
-fn shors(number: u32) -> u32 {
+fn shors(number: u32, fast: bool, use_circuit: bool) -> u32 {
     // Shor's algorithm doesn't work for even numbers
     if number % 2 == 0 {
         return 2;
@@ -115,7 +130,11 @@ fn shors(number: u32) -> u32 {
         }
 
         // Quantum part
-        let r = find_period(number, a);
+        let r = if use_circuit {
+            find_period_circuit(number, a)
+        } else {
+            find_period(number, a, fast)
+        };
 
         // We need an even r. If r is odd, try again.
         if r % 2 == 0 {
@@ -131,11 +150,12 @@ fn shors(number: u32) -> u32 {
                 debug!("GCD({}-1, N) = {}", k, factor1);
                 debug!("GCD({}+1, N) = {}", k, factor2);
 
-                // At this point, both factor1 and factor2 are guaranteed to be
-                // non-trivial factors of N, so we can return either one.
-                // It is also be the case that factor1 * factor2 = N.
-
-                return factor1;
+                if factor1 != 1 && factor1 != number {
+                    return factor1;
+                }
+                if factor2 != 1 && factor2 != number {
+                    return factor2;
+                }
             } else {
                 // We end up here if {gcd(k-1,N), gcd(k+1,N)} = {1, N}.
                 debug!("a^(r/2) = -1 (mod N), trying again");
@@ -148,8 +168,18 @@ fn shors(number: u32) -> u32 {
     }
 }
 
+fn find_period(number: u32, a: u32, fast: bool) -> u32 {
+    if fast {
+        find_period_fast(number, a)
+    } else {
+        find_period_slow(number, a)
+    }
+}
+
 /// Calculate r, a good guess for the period of f(x) = a^x mod N.
-fn find_period(number: u32, a: u32) -> u32 {
+fn find_period_slow(number: u32, a: u32) -> u32 {
+    debug!("Running slow period finding");
+
     // We need n qubits to represent N
     let n = ((number + 1) as f64).log2().ceil() as usize;
 
@@ -198,11 +228,137 @@ fn find_period(number: u32, a: u32) -> u32 {
     // and r is the period of a^x (mod N).
 
     // Find the fraction s/r closest to theta with r < N (we know the period is less than N).
+    
+
+    limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1
+}
+
+fn find_period_circuit(number: u32, a: u32) -> u32 {
+    // We need n qubits to represent N
+    let n = ((number + 1) as f64).log2().ceil() as usize;
+
+    let mut circ = QuantumCircuit::new();
+    circ.add_operation(operation::hadamard_transform((0..2 * n).collect()));
+
+    circ.add_operation(operation::not(2 * n));
+
+    // The U-gates are applied to the last n qubits
+    let targets: Vec<usize> = (2 * n..3 * n).collect();
+    for i in 0..2 * n {
+        let u_gate = u_gate(targets.clone(), number, a, i);
+        // There are 2n U gates, each controlled by one of the first 2n qubits
+        let c_u_gate = operation::to_controlled(u_gate, i);
+
+        circ.add_operation(c_u_gate);
+    }
+    // Apply the qft (Quantum Fourier Transform) to the first 2n qubits
+    let qft = qft(2 * n);
+    circ.add_operation(qft.expect("Creation of qft failed"));
+
+    let mut res = 0;
+    for i in 0..2 * n {
+        circ.add_measurement(i);
+    }
+
+    let mut reg = Register::new(&vec![false; 3 * n]);
+
+    println!("REDUCE CIRCUIT");
+    circ.reduce_circuit_cancel_gates();
+    circ.reduce_circuit_gates_with_same_targets();
+    circ.reduce_non_overlapping_gates();
+    println!("APPLY CIRCUIT");
+    let measures = reg.apply_circuit(&mut circ);
+    for (i, m) in measures.iter() {
+        let v = if *m { 1 } else { 0 };
+        res |= v << i;
+    }
+
+    let theta = res as f64 / 2_f64.pow((2 * n) as f64);
+    debug!("theta = {}", theta);
+    // At this point, theta ≃ s/r, where s is a random number between 0 and r-1,
+    // and r is the period of a^x (mod N).
+
+    // Find the fraction s/r closest to theta with r < N (we know the period is less than N).
     let r = limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1;
 
     r
 }
+// See https://arxiv.org/pdf/quant-ph/0001066.pdf
+fn find_period_fast(number: u32, a: u32) -> u32 {
+    debug!("Running fast period finding");
 
+    // Number of (qu)bits in `number`
+    let n = ((number + 1) as f64).log2().ceil() as usize;
+
+    // Register with n+1 qubits
+    // Qubit 0 is the control qubit and qubits 1-n are the targets.
+    let mut reg = Register::new(&vec![false; n + 1]);
+
+    // Target qubits should represent 1 in binary
+    debug!("Applying not");
+    reg.apply(&operation::not(1));
+
+    // All measurements as an integer
+    let mut res = 0;
+
+    // The sum in the formula for the R-gate (Parker&Plenio fig. 2 caption)
+    // (exponentially weighted sum of measurements)
+    let mut sm = 0.0;
+
+    // Target qubits for the C-U-gates
+    let targets: Vec<usize> = (1..n + 1).collect();
+
+    for i in 0..2 * n {
+        // Put the control qubit in superposition
+        reg.apply(&operation::hadamard(0));
+
+        // Create and apply C-U-gate
+        let u_gate = u_gate(targets.clone(), number, a, 2 * n - 1 - i);
+        let c_u_gate = operation::to_controlled(u_gate, 0);
+        debug!("Applying c_u_gate for i = {}", i);
+        reg.apply(&c_u_gate);
+
+        // Now need to do a slice of QFT for the control qubit.
+        let phi = c64::new(0.0, -2.0 * PI * sm).exp();
+        let r_gate = Operation::new(
+            array![
+                [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+                [c64::new(0.0, 0.0), phi]
+            ],
+            vec![0],
+        )
+        .expect("Failed to construct R gate");
+        debug!("Applying R- and H-gates to control qubits");
+        reg.apply(&r_gate);
+        reg.apply(&operation::hadamard(0));
+
+        // Measure the control qubit.
+        debug!("Measuring");
+        let m = reg.measure(0);
+        debug!("Measured {}", m);
+        sm /= 2.0; // The sum is exponentially decaying
+        if m {
+            // Reset the control qubit to a known state of 0 to be reused
+            // in the next iteration.
+            debug!("Resetting control qubit to 0");
+            reg.apply(&operation::not(0));
+
+            res |= 1 << i;
+            sm += 0.25;
+        }
+    }
+    debug!("res = {}", res);
+
+    let theta = res as f64 / 2_f64.pow((2 * n) as f64);
+    debug!("theta = {}", theta);
+    // At this point, theta ≃ s/r, where s is a random number between 0 and r-1,
+    // and r is the period of a^x (mod N).
+
+    // Find the fraction s/r closest to theta with r < N (we know the period is less than N).
+    let r = limit_denominator(res, 2_u32.pow(2 * n as u32) - 1, number - 1).1;
+
+    r
+}
 /// Returns the Quantum Fourier Transformation gate for the first n qubits in the register
 pub fn qft(n: usize) -> Option<Operation> {
     let m = 1 << n;
@@ -218,45 +374,48 @@ pub fn qft(n: usize) -> Option<Operation> {
 
 #[cfg(test)]
 mod tests {
-    use quaru::math::{equal_qubits, modpow, c64};
-    use quaru::register::Register;
+    use ndarray::{array, linalg, Array2};
+    use quaru::math::c64;
+    use quaru::math::{equal_qubits, modpow};
     use quaru::operation::Operation;
-    use ndarray::{Array2, array, linalg};
+    use quaru::register::Register;
 
     #[test]
     fn period_finder_working() {
-        // Try many combinations of a and N.
-        // For each combination, find the period of f(x) = a^x mod N.
-        for number in 2..6 {
-            for a in 2..number {
-                if gcd::euclid_u32(number, a) != 1 {
-                    // f(x) is not periodic if a and N share a factor since in
-                    // that case f(0) = 1 but there are no other solutions to f(x) = 1
-                    // (a has no multiplicative order modulo N).
-                    continue;
-                }
-
-                // Calculate the period classically
-                let mut period = 1;
-                let mut a_pow = a;
-                while a_pow != 1 {
-                    a_pow = a_pow * a % number;
-                    period += 1;
-                }
-
-                // Find the period with the quantum algorithm 20 times
-                let mut ok = 0;
-                for _ in 0..20 {
-                    // Quantum Period Finding is likely to find the period or a factor of the period
-                    let r = super::find_period(number, a);
-                    if period % r == 0 {
-                        ok += 1;
+        for fast in [false, true] {
+            // Try many combinations of a and N.
+            // For each combination, find the period of f(x) = a^x mod N.
+            for number in 2..(if fast { 15 } else { 6 }) {
+                for a in 2..number {
+                    if gcd::euclid_u32(number, a) != 1 {
+                        // f(x) is not periodic if a and N share a factor since in
+                        // that case f(0) = 1 but there are no other solutions to f(x) = 1
+                        // (a has no multiplicative order modulo N).
+                        continue;
                     }
-                }
 
-                // Quantum Period Finding is probabilistic, so we can't expect it to always work.
-                // Good enough if 15 of the 20 tests were ok.
-                assert!(ok >= 15);
+                    // Calculate the period classically
+                    let mut period = 1;
+                    let mut a_pow = a;
+                    while a_pow != 1 {
+                        a_pow = a_pow * a % number;
+                        period += 1;
+                    }
+
+                    // Find the period with the quantum algorithm 20 times
+                    let mut ok = 0;
+                    for _ in 0..20 {
+                        // Quantum Period Finding is likely to find the period or a factor of the period
+                        let r = super::find_period(number, a, fast);
+                        if period % r == 0 {
+                            ok += 1;
+                        }
+                    }
+
+                    // Quantum Period Finding is probabilistic, so we can't expect it to always work.
+                    // Good enough if 15 of the 20 tests were ok.
+                    assert!(ok >= 15);
+                }
             }
         }
     }
@@ -266,7 +425,7 @@ mod tests {
         // Test all composite numbers up to 15.
         // Only 15 is not caught by classical tests.
         for n in [4, 6, 8, 9, 10, 12, 14, 15] {
-            let r = super::shors(n);
+            let r = super::shors(n, true, false);
             assert!(n % r == 0 && 1 < r && r < n);
         }
     }
@@ -311,7 +470,10 @@ mod tests {
             // The transformation for the ith qubit.
             let em = array![
                 [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
-                [c64::new(0.0, 0.0), c64::from_polar(1.0, std::f64::consts::PI/2_f64.powi(i as i32) * a as f64)]
+                [
+                    c64::new(0.0, 0.0),
+                    c64::from_polar(1.0, std::f64::consts::PI / 2_f64.powi(i as i32) * a as f64)
+                ]
             ];
 
             matrix = linalg::kron(&matrix, &em);
@@ -321,18 +483,18 @@ mod tests {
     }
 
     #[test]
-    fn qft_add(){
+    fn qft_add() {
         let n = 5;
-        
+
         let qft_gate = super::qft(n).expect("Creation of qft failed");
         for a in 0..50 {
             for b in 0..50 {
                 // Test that ADD(a, QFT(b)) = QFT(a+b)
-                let mut reg1 = Register::from_int(n, b%(1<<n));
+                let mut reg1 = Register::from_int(n, b % (1 << n));
                 reg1.apply(&qft_gate);
                 reg1.apply(&add_operation(a, (0..n).collect()));
 
-                let mut reg2 = Register::from_int(n, (a+b)%(1<<n));
+                let mut reg2 = Register::from_int(n, (a + b) % (1 << n));
                 reg2.apply(&qft_gate);
 
                 assert!(equal_qubits(reg1.state, reg2.state));

@@ -188,8 +188,8 @@ impl Register {
     /// **Panics** if the operation is invalid or contains target bits
     /// outside of the valid range [0, N)
     pub fn apply(&mut self, op: &Operation) -> &mut Self {
-        // self.try_apply(op).expect("Coult not apply operation")
-        self.try_apply_fast(op).expect("Could not apply operation")
+        self.try_apply(op).expect("Could not apply operation")
+        //self.try_apply_fast(op).expect("Could not apply operation")
     }
 
     /// Tries to apply a quantum operation to the current state using fast Shrödinger simulation

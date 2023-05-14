@@ -50,6 +50,7 @@ enum Accumulator {
 fn benchmark(func: fn(i32) -> f64, xs: Vec<i32>, attempts: usize, acc: Accumulator) -> Vec<f64> {
     let mut ys = vec![];
     for n in xs {
+        func(n); // Warmup
         let mut measurements = vec![];
         for _ in 0..attempts {
             measurements.push(func(n));

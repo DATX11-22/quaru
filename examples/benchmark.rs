@@ -10,15 +10,18 @@ use std::time::Instant;
 
 include!("shors_functions.rs");
 
-fn is_shorable(n: u32) -> bool {
-    // Check if prime
-    let mut prime = true;
+fn is_prime(n: u32) -> bool {
     for i in 2..n {
         if n % i == 0 {
-            prime = false;
+            return false;
         }
     }
-    if prime {
+    true
+}
+
+fn is_shorable(n: u32) -> bool {
+    // Check if prime
+    if is_prime(n) {
         return false;
     }
 
@@ -77,9 +80,17 @@ fn main() {
         start.elapsed().as_secs_f64()
     }
 
-    let xs: Vec<i32> = (2..=100).filter(|&x| is_shorable(x as u32)).collect();
-    let ys = benchmark(bench_shors, xs.clone(), 100, Accumulator::Avg);
-    let formula = |p: Vec<f64>, x: i32| (p[0]*p[1].pow((x as f64).log2()));
+    let mut xs: Vec<i32> = vec![]; //(2..=255).filter(|&x| is_shorable(x as u32) && is_semiprime(x as u32)).collect();
+    let mut i = 2;
+    while i < 512 {
+        if is_shorable(i as u32) {
+            xs.push(i);
+            i = (i as f64 * 1.05) as i32;
+        }
+        i += 1;
+    }
+    let ys = benchmark(bench_shors, xs.clone(), 200, Accumulator::Avg);
+    let formula = |p: Vec<f64>, x: i32| (p[0]*p[1].pow((x as f64 + 1.0).log2().ceil()));
     let mut p = vec![1e-6, 3.0];
 
     /*

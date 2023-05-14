@@ -4,8 +4,12 @@ use crate::{
     math::{self, c64},
     operation::{Operation, QuantumCircuit, QuantumOperation},
 };
+use af::dim4;
 use ndarray::{array, linalg, Array1, Array2};
+use num::Zero;
 use rand::prelude::*;
+extern crate arrayfire as af;
+
 /// Errors which can occur when an operation is applied on the register.
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationError {
@@ -34,6 +38,58 @@ pub struct Register {
     /// that the system will collapse into the state described by the ith basis vector.
     pub state: Array2<math::c64>, // Should not be pub (it is pub now for testing purpouses)
     size: usize,
+}
+
+fn kronecker(a: &af::Array<c64>, b: &af::Array<c64>) -> af::Array<c64> {
+    let a_rows = a.dims()[0];
+    let a_cols = a.dims()[1];
+    let b_rows = b.dims()[0];
+    let b_cols = b.dims()[1];
+
+    let mut result = af::Array::new_empty(af::Dim4::new(&[a_rows * b_rows, a_cols * b_cols, 1, 1]));
+
+    let mut a_data = vec![c64::default(); a.elements() as usize];
+    a.host(&mut a_data);
+
+    for i in 0..a_rows {
+        for j in 0..a_cols {
+            let a_val = a_data[(j*a_rows+i) as usize];
+            let subarray = a_val * b;
+            let row_seq = af::Seq::new((i * b_rows) as f64, ((i + 1) * b_rows - 1) as f64, 1.0);
+            let col_seq = af::Seq::new((j * b_cols) as f64, ((j + 1) * b_cols - 1) as f64, 1.0);
+            af::assign_seq(&mut result, &[row_seq, col_seq], &subarray);
+        }
+    }
+
+    result
+}
+
+fn kronecker_identity(id_size: u64, a: &af::Array<c64>) -> af::Array<c64> {
+    let a_rows = a.dims()[0];
+    let a_cols = a.dims()[1];
+
+    let mut result = af::constant!(c64::zero(); a_rows*id_size, a_cols*id_size);
+
+    for i in 0..id_size {
+        let row_seq = af::Seq::new((i * a_rows) as u32, ((i + 1) * a_rows - 1) as u32, 1);
+        let col_seq = af::Seq::new((i * a_cols) as u32, ((i + 1) * a_cols - 1) as u32, 1);
+        af::assign_seq(&mut result, &[row_seq, col_seq], &a);
+    }
+
+    result
+}
+
+fn kronecker_identity_cpu(id_size: usize, a: &Array2<c64>) -> Array2<c64> {
+    let a_rows = a.shape()[0];
+    let a_cols = a.shape()[1];
+
+    let mut result = Array2::zeros((a_rows*id_size, a_cols*id_size));
+
+    for i in 0..id_size {
+        result.slice_mut(ndarray::s![i * a_rows..(i + 1) * a_rows, i * a_cols..(i + 1) * a_cols]).assign(a);
+    }
+
+    result
 }
 
 impl Register {
@@ -132,8 +188,8 @@ impl Register {
     /// **Panics** if the operation is invalid or contains target bits
     /// outside of the valid range [0, N)
     pub fn apply(&mut self, op: &Operation) -> &mut Self {
-        // self.try_apply(op).expect("Coult not apply operation")
-        self.try_apply_fast(op).expect("Could not apply operation")
+        self.try_apply(op).expect("Could not apply operation")
+        //self.try_apply_fast(op).expect("Could not apply operation")
     }
 
     /// Tries to apply a quantum operation to the current state using fast Shrödinger simulation
@@ -190,6 +246,28 @@ impl Register {
         Ok(self)
     }
 
+    /// Note: transposes the array
+    fn ndarray_to_arrayfire(input: &Array2<c64>) -> af::Array<c64> {
+        let data_vec: Vec<c64> = input.iter().cloned().collect();
+
+        let af_array = af::Array::new(&data_vec, af::Dim4::new(&[input.shape()[1] as u64, input.shape()[0] as u64, 1, 1]));
+
+        af_array
+    }
+
+    /// Note: transposes the array
+    fn arrayfire_to_ndarray(af_array: &af::Array<c64>) -> Array2<c64> {
+        let af_dims = af_array.dims();
+        let shape = (af_dims[1] as usize, af_dims[0] as usize);
+
+        let mut data: Vec<c64> = vec![c64::default(); af_dims.elements() as usize];
+        af_array.host(&mut data);
+
+        let ndarray = Array2::from_shape_vec(shape, data).expect("Converting to ndarray failed");
+
+        ndarray
+    }
+
     pub fn try_apply(&mut self, op: &Operation) -> Result<&mut Self, OperationError> {
         // Check operation validity
         let expected_size = op.targets().len();
@@ -231,11 +309,25 @@ impl Register {
             permuted_state[(i, 0)] = self.state[(j, 0)];
         }
 
+        // Without GPU
         // Tensor product of operation matrix and identity
-        let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
+        //let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
+        // ~6% faster for shor's:
+        //let matrix = kronecker_identity_cpu(1 << (self.size - op.arity()), &op.matrix());
 
         // Calculate new state
-        permuted_state = matrix.dot(&permuted_state);
+        //permuted_state = matrix.dot(&permuted_state);
+
+        // With GPU
+        // Tensor product of operation matrix and identity
+        let af_op_matrix = Self::ndarray_to_arrayfire(&op.matrix());
+        let af_matrix = kronecker_identity(1<<(self.size - op.arity()), &af_op_matrix);
+
+        // Calculate new state
+        let af_permuted_state = Self::ndarray_to_arrayfire(&permuted_state);
+        // A * B = (B^T * A^T)^T
+        let af_new_permuted_state = af::matmul(&af_permuted_state, &af_matrix, af::MatProp::NONE, af::MatProp::NONE);
+        permuted_state = Self::arrayfire_to_ndarray(&af_new_permuted_state);
 
         // Permute back, similar to above but backwards (perm[k] -> k instead of the other way around)
         for i in 0..permuted_state.len() {

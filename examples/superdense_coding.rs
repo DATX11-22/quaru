@@ -29,7 +29,7 @@ fn main() {
 
     let (a, b) = superdense_decode(register);
 
-    println!("Measured result: {} {}", a, b);
+    println!("Measured result: {a} {b}");
 
     if a == args.a && b == args.b {
         println!("Correct");

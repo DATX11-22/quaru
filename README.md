@@ -15,8 +15,8 @@ Repository for group 22 quantum computer simulator bachelor's thesis.
 
 ## Examples
 
-The simulator features a number of examples located under the /examples directory. These are binary crates you can run with cargo.`<br/>`
-To run an example, run the following command: `<br/>`
+The simulator features a number of examples located under the /examples directory. These are binary crates you can run with cargo. <br/>
+To run an example, run the following command: <br/>
 `cargo run --example <filename>`
 
 Here are all available examples: 
@@ -50,7 +50,7 @@ Here is a list of all parameters for each example that accepts them:
 For example: `<br/>`
 `cargo run --example grovers -- --target 64`
 
-#### BLAS feature
+## BLAS feature
 
 We provide suport for enabling the feature "blas" in the [ndarray](https://crates.io/crates/ndarray) crate.
 When enabling this feature you need to add the [blas-src](https://crates.io/crates/blas-src) crate to your dependencies. You also need to choose one of the five supported blas implementations:

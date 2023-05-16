@@ -1,7 +1,7 @@
 //! The `register` module provides quantum register functionality.
 
 use crate::{
-    math::{self, c64},
+    math::{self, c64, kronecker_identity},
     operation::{Operation, QuantumCircuit, QuantumOperation},
 };
 use ndarray::{array, linalg, Array1, Array2};
@@ -232,7 +232,8 @@ impl Register {
         }
 
         // Tensor product of operation matrix and identity
-        let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
+        //let matrix = linalg::kron(&Array2::eye(1 << (self.size - op.arity())), &op.matrix());
+        let matrix = kronecker_identity(1 << (self.size - op.arity()), &op.matrix());
 
         // Calculate new state
         permuted_state = matrix.dot(&permuted_state);

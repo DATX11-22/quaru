@@ -1,5 +1,5 @@
 use quaru::math::real_arr_to_complex;
-use quaru::register::{Register, self};
+use quaru::register::{Register};
 use quaru::operation::*;
 use ndarray::array;
 

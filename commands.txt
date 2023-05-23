@@ -1,0 +1,11 @@
+CLI
+cargo run
+
+OpenQASM
+cargo run --example openqasm_example
+
+Library
+cargo run --example basic_example
+
+Shors
+RUST_LOG=debug cargo run --release --example shors -- --number 301 --fast

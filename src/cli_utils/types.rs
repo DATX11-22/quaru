@@ -232,7 +232,7 @@ impl HistoryQRegister  {
     }
 
     pub fn print_state(&self) {
-        self.register.print_state()
+        self.register.print_probabilities()
     }
 
     pub fn apply(&mut self, op: &IdentfiableOperation) {

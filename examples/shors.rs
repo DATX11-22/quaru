@@ -108,7 +108,8 @@ fn shors(number: u32, fast: bool) -> u32 {
         debug!("=== Attempt {} ===", iter + 1);
 
         // Pick a random number 1 < a < number
-        let a: u32 = rand::thread_rng().gen_range(2..number);
+        let mut a: u32 = rand::thread_rng().gen_range(2..number);
+        a = 124+a-a; // live demo hardcode
 
         debug!("Using a = {} as guess", a);
 

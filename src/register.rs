@@ -292,6 +292,7 @@ impl Register {
         for (i, s) in self.state.iter().enumerate() {
             println!("{:0n$b}: {}%", i, s.norm_sqr() * 100.0);
         }
+        println!();
     }
 
     /// Prints the state vector in binary representation.
